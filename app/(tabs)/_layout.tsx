@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Grid3X3, Package, Heart, User } from 'lucide-react-native';
 import MobileCategorySheet from '@/components/MobileCategorySheet';
 import { useCategories } from '@/hooks/useCategories';
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   const [sheetOpen, setSheetOpen] = useState(false);
   const { categories } = useCategories();
 
@@ -18,8 +20,9 @@ export default function TabsLayout() {
           tabBarStyle: {
             backgroundColor: '#fff',
             borderTopColor: '#F3F4F6',
-            height: 62,
-            paddingBottom: 8,
+            // Add the system nav bar's height to ours so we sit above it
+            height: 62 + insets.bottom,
+            paddingBottom: 8 + insets.bottom,
             paddingTop: 6,
           },
           tabBarLabelStyle: {
@@ -28,6 +31,7 @@ export default function TabsLayout() {
           },
         }}
       >
+        {/* ...rest of your Tabs.Screen entries unchanged... */}
         <Tabs.Screen
           name="index"
           options={{
@@ -42,7 +46,6 @@ export default function TabsLayout() {
             tabBarIcon: ({ color, size }) => <Grid3X3 size={size} color={color} />,
           }}
           listeners={{
-            // Intercept tap — open sheet instead of navigating
             tabPress: (e) => {
               e.preventDefault();
               setSheetOpen(true);
@@ -67,7 +70,7 @@ export default function TabsLayout() {
                 fill={focused ? '#ef4444' : 'transparent'}
               />
             ),
-            tabBarActiveTintColor: '#ef4444', // override active color for this tab
+            tabBarActiveTintColor: '#ef4444',
           }}
         />
         <Tabs.Screen
@@ -79,7 +82,6 @@ export default function TabsLayout() {
         />
       </Tabs>
 
-      {/* Category sheet rendered at the layout level so it overlays the tab bar */}
       <MobileCategorySheet
         categories={categories}
         isOpen={sheetOpen}
