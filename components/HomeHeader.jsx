@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, Pressable, TextInput } from 'react-native';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { Search, X, ShoppingCart } from 'lucide-react-native';
 import { useCart } from '@/context/CartContext';
 
@@ -20,18 +20,19 @@ const HomeHeader = () => {
       {/* Main bar */}
       <View className="flex-row items-center justify-between px-4 h-14">
         {/* Logo */}
-        <Link href="/" asChild>
-          <Pressable className="flex-row items-center gap-2">
-            <View className="w-9 h-9 rounded-xl bg-green-600 items-center justify-center">
-              <Text className="text-white font-black text-base">E</Text>
-            </View>
-            <Text className="text-xl font-black tracking-tight">
-              <Text className="text-green-700">Explore</Text>
-              <Text className="text-gray-900">Aba</Text>
-              <Text className="text-emerald-500">.</Text>
-            </Text>
-          </Pressable>
-        </Link>
+        <Pressable
+          onPress={() => router.push('/')}
+          className="flex-row items-center gap-2"
+        >
+          <View className="w-9 h-9 rounded-xl bg-green-600 items-center justify-center">
+            <Text className="text-white font-black text-base">E</Text>
+          </View>
+          <Text className="text-xl font-black tracking-tight">
+            <Text className="text-green-700">Explore</Text>
+            <Text className="text-gray-900">Aba</Text>
+            <Text className="text-emerald-500">.</Text>
+          </Text>
+        </Pressable>
 
         {/* Right icons */}
         <View className="flex-row items-center gap-2">
@@ -47,23 +48,24 @@ const HomeHeader = () => {
             )}
           </Pressable>
 
-          <Link href="/cart" asChild>
-            <Pressable className="flex-row items-center gap-1.5 px-3 py-2 bg-gray-50 border border-gray-100 rounded-full">
-              <View>
-                <ShoppingCart size={18} color="#374151" />
-                {cartCount > 0 && (
-                  <View className="absolute -top-2 -right-2 bg-green-600 w-4 h-4 rounded-full border-2 border-white items-center justify-center">
-                    <Text className="text-white text-[8px] font-black">
-                      {cartCount > 99 ? '99+' : cartCount}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text className="text-xs font-bold text-gray-700">
-                ₦{cartTotal ? cartTotal.toLocaleString() : '0'}
-              </Text>
-            </Pressable>
-          </Link>
+          <Pressable
+            onPress={() => router.push('/cart')}
+            className="flex-row items-center gap-1.5 px-3 py-2 bg-gray-50 border border-gray-100 rounded-full"
+          >
+            <View>
+              <ShoppingCart size={18} color="#374151" />
+              {cartCount > 0 && (
+                <View className="absolute -top-2 -right-2 bg-green-600 w-4 h-4 rounded-full border-2 border-white items-center justify-center">
+                  <Text className="text-white text-[8px] font-black">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text className="text-xs font-bold text-gray-700">
+              ₦{cartTotal ? cartTotal.toLocaleString() : '0'}
+            </Text>
+          </Pressable>
         </View>
       </View>
 

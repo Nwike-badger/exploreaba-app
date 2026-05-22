@@ -1,14 +1,13 @@
 import { useState, useMemo } from 'react';
-import { Modal, View, Text, Pressable, TextInput, ScrollView } from 'react-native';
+import { Modal, View, Text, Pressable, TextInput, ScrollView} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 import { X, Search, Layers, ChevronRight } from 'lucide-react-native';
 
 const MobileCategorySheet = ({ categories = [], isOpen, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Flat list for searching: top-level + children
   const allCategories = useMemo(() => {
     const flat = [];
     categories.forEach((cat) => {
@@ -39,6 +38,11 @@ const MobileCategorySheet = ({ categories = [], isOpen, onClose }) => {
     onClose();
   };
 
+  const navigateToCategory = (slug) => {
+    handleClose();
+    router.push(`/category/${slug}`);
+  };
+
   return (
     <Modal
       visible={isOpen}
@@ -48,13 +52,11 @@ const MobileCategorySheet = ({ categories = [], isOpen, onClose }) => {
       statusBarTranslucent
     >
       <View className="flex-1 justify-end">
-        {/* Backdrop */}
         <Pressable
           className="absolute inset-0 bg-black/55"
           onPress={handleClose}
         />
 
-        {/* Sheet */}
         <View
           className="bg-white rounded-t-3xl"
           style={{ maxHeight: '92%', minHeight: '60%' }}
@@ -131,85 +133,76 @@ const MobileCategorySheet = ({ categories = [], isOpen, onClose }) => {
                   </Text>
                 </View>
               ) : isSearching ? (
-                // List style for search results
                 <View className="gap-1">
                   {filtered.map((cat) => (
-                    <Link
+                    <Pressable
                       key={cat.id || cat.slug}
-                      href={`/category/${cat.slug}`}
-                      asChild
+                      onPress={() => navigateToCategory(cat.slug)}
+                      className="flex-row items-center gap-3 p-3 rounded-xl"
                     >
-                      <Pressable
-                        onPress={handleClose}
-                        className="flex-row items-center gap-3 p-3 rounded-xl"
-                      >
-                        <View className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 items-center justify-center">
-                          {cat.imageUrl ? (
-                            <Image
-                              source={{ uri: cat.imageUrl }}
-                              style={{ width: '100%', height: '100%' }}
-                              contentFit="cover"
-                            />
-                          ) : (
-                            <Layers size={16} color="#34d399" />
-                          )}
-                        </View>
-                        <View className="flex-1">
-                          <Text
-                            className="font-bold text-sm text-gray-900"
-                            numberOfLines={1}
-                          >
-                            {cat.name}
+                      <View className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 items-center justify-center">
+                        {cat.imageUrl ? (
+                          <Image
+                            source={{ uri: cat.imageUrl }}
+                            style={{ width: '100%', height: '100%' }}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <Layers size={16} color="#34d399" />
+                        )}
+                      </View>
+                      <View className="flex-1">
+                        <Text
+                          className="font-bold text-sm text-gray-900"
+                          numberOfLines={1}
+                        >
+                          {cat.name}
+                        </Text>
+                        {cat._parentName && (
+                          <Text className="text-[10px] text-gray-400 font-medium">
+                            in {cat._parentName}
                           </Text>
-                          {cat._parentName && (
-                            <Text className="text-[10px] text-gray-400 font-medium">
-                              in {cat._parentName}
-                            </Text>
-                          )}
-                        </View>
-                        <ChevronRight size={16} color="#D1D5DB" />
-                      </Pressable>
-                    </Link>
+                        )}
+                      </View>
+                      <ChevronRight size={16} color="#D1D5DB" />
+                    </Pressable>
                   ))}
                 </View>
               ) : (
-                // 3-column grid for top-level browsing
                 <View className="flex-row flex-wrap" style={{ gap: 12 }}>
                   {filtered.map((cat) => (
                     <View key={cat.id || cat.slug} style={{ width: '31%' }}>
-                      <Link href={`/category/${cat.slug}`} asChild>
-                        <Pressable
-                          onPress={handleClose}
-                          className="items-center gap-2"
-                        >
-                          <View className="relative w-20 h-20 rounded-full bg-gray-100 p-[2.5px]">
-                            <View className="w-full h-full rounded-full overflow-hidden bg-gray-50 border-2 border-white items-center justify-center">
-                              {cat.imageUrl ? (
-                                <Image
-                                  source={{ uri: cat.imageUrl }}
-                                  style={{ width: '100%', height: '100%' }}
-                                  contentFit="cover"
-                                />
-                              ) : (
-                                <Layers size={22} color="#34d399" strokeWidth={1.5} />
-                              )}
-                            </View>
-                            {cat.children?.length > 0 && (
-                              <View className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-green-600 rounded-full border-2 border-white items-center justify-center">
-                                <Text className="text-white text-[9px] font-black">
-                                  {cat.children.length}
-                                </Text>
-                              </View>
+                      <Pressable
+                        onPress={() => navigateToCategory(cat.slug)}
+                        className="items-center gap-2"
+                      >
+                        <View className="relative w-20 h-20 rounded-full bg-gray-100 p-[2.5px]">
+                          <View className="w-full h-full rounded-full overflow-hidden bg-gray-50 border-2 border-white items-center justify-center">
+                            {cat.imageUrl ? (
+                              <Image
+                                source={{ uri: cat.imageUrl }}
+                                style={{ width: '100%', height: '100%' }}
+                                contentFit="cover"
+                              />
+                            ) : (
+                              <Layers size={22} color="#34d399" strokeWidth={1.5} />
                             )}
                           </View>
-                          <Text
-                            className="text-[11px] font-bold text-gray-600 text-center"
-                            numberOfLines={2}
-                          >
-                            {cat.name}
-                          </Text>
-                        </Pressable>
-                      </Link>
+                          {cat.children?.length > 0 && (
+                            <View className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-green-600 rounded-full border-2 border-white items-center justify-center">
+                              <Text className="text-white text-[9px] font-black">
+                                {cat.children.length}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text
+                          className="text-[11px] font-bold text-gray-600 text-center"
+                          numberOfLines={2}
+                        >
+                          {cat.name}
+                        </Text>
+                      </Pressable>
                     </View>
                   ))}
                 </View>

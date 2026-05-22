@@ -75,8 +75,11 @@ const ProductCard = ({ product, isFlashSale, priority = false }) => {
   const { primary } = getDisplayImages(product);
 
   return (
-    <Link href={`/product/${productId}`} asChild>
-      <Pressable className="flex flex-col bg-white rounded-xl overflow-hidden border border-gray-100">
+    <Pressable
+    onPress={() => router.push(`/product/${productId}`)}
+       className="flex flex-col bg-white rounded-xl overflow-hidden border border-gray-100"
+    >
+      
         {/* IMAGE */}
         <View className="relative bg-gray-100 aspect-[3/4]">
           <Image
@@ -197,8 +200,8 @@ const ProductCard = ({ product, isFlashSale, priority = false }) => {
             </View>
           )}
         </View>
-      </Pressable>
-    </Link>
+      
+    </Pressable>
   );
 };
 

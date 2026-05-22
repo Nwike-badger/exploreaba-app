@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import api from '@/services/axiosConfig';
 import { toast } from '@/utils/toast';
@@ -81,7 +81,6 @@ export default function SignupScreen() {
               Join us to track orders and checkout faster
             </Text>
 
-            {/* Google */}
             <Pressable
               onPress={googleSignIn}
               disabled={!googleReady || anyLoading}
@@ -204,11 +203,9 @@ export default function SignupScreen() {
 
             <View className="flex-row justify-center mt-8">
               <Text className="text-sm text-gray-500">Already have an account? </Text>
-              <Link href="/login" asChild>
-                <Pressable>
-                  <Text className="text-sm font-bold text-blue-600">Log In</Text>
-                </Pressable>
-              </Link>
+              <Pressable onPress={() => router.push('/login')}>
+                <Text className="text-sm font-bold text-blue-600">Log In</Text>
+              </Pressable>
             </View>
           </View>
         </ScrollView>

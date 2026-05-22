@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/axiosConfig';
@@ -34,7 +34,6 @@ export default function LoginScreen() {
     const isAdmin = getRolesFromToken(accessToken);
     if (isAdmin) {
       toast.success("Welcome back, Admin! 🛡️");
-      // Admin route doesn't exist yet — go home for now
       router.replace('/');
     } else {
       toast.success('Welcome back!');
@@ -86,7 +85,6 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View className="flex-1 justify-center">
-            {/* Header */}
             <Text className="text-3xl font-black text-gray-900 mb-2">
               Welcome Back
             </Text>
@@ -105,7 +103,6 @@ export default function LoginScreen() {
                 <ActivityIndicator color="#374151" />
               ) : (
                 <>
-                  {/* Google G logo as inline text — works without an icon dep */}
                   <Text className="text-lg font-bold" style={{ color: '#4285F4' }}>G</Text>
                   <Text className="text-sm font-bold text-gray-800">
                     Continue with Google
@@ -152,11 +149,9 @@ export default function LoginScreen() {
             <View className="mb-6">
               <View className="flex-row justify-between items-center mb-1.5">
                 <Text className="text-sm font-bold text-gray-700">Password</Text>
-                <Link href="/forgot-password" asChild>
-                  <Pressable>
-                    <Text className="text-sm font-bold text-blue-600">Forgot?</Text>
-                  </Pressable>
-                </Link>
+                <Pressable onPress={() => router.push('/forgot-password')}>
+                  <Text className="text-sm font-bold text-blue-600">Forgot?</Text>
+                </Pressable>
               </View>
               <View className="relative">
                 <TextInput
@@ -202,11 +197,9 @@ export default function LoginScreen() {
             {/* Footer */}
             <View className="flex-row justify-center mt-8">
               <Text className="text-sm text-gray-500">Don't have an account? </Text>
-              <Link href="/signup" asChild>
-                <Pressable>
-                  <Text className="text-sm font-bold text-blue-600">Create one</Text>
-                </Pressable>
-              </Link>
+              <Pressable onPress={() => router.push('/signup')}>
+                <Text className="text-sm font-bold text-blue-600">Create one</Text>
+              </Pressable>
             </View>
           </View>
         </ScrollView>
