@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Modal, View, Text, Pressable, TextInput, ScrollView, SafeAreaView } from 'react-native';
+import { Modal, View, Text, Pressable, TextInput, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { X, Search, Layers, ChevronRight } from 'lucide-react-native';
