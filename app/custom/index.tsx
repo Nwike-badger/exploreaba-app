@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   View, Text, Pressable, ScrollView, LayoutAnimation, Platform, UIManager, Linking,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
@@ -13,7 +14,6 @@ import {
 } from 'lucide-react-native';
 import { useCustomCategories } from '@/hooks/useCustomCategories';
 import { STORAGE_KEYS, WHATSAPP_NUMBER } from '@/lib/customDesignData';
-// (remove the CATEGORIES import — it's gone)
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -51,7 +51,7 @@ export default function CustomDesignScreen() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-//  Resume draft banner — checks AsyncStorage for in-progress order
+//  Resume draft banner
 // ────────────────────────────────────────────────────────────────────────────
 
 function ResumeDraftBanner() {
@@ -94,7 +94,7 @@ function ResumeDraftBanner() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-//  Hero — the moment that sells the experience
+//  Hero
 // ────────────────────────────────────────────────────────────────────────────
 
 function Hero() {
@@ -127,7 +127,7 @@ function Hero() {
 
       <View className="flex-row gap-2 mb-10">
         <Pressable
-          onPress={() => router.push('/custom#categories' /* anchor not used, just scrolls to top of categories below */ )}
+          onPress={() => {}}
           style={{ backgroundColor: STONE_900 }}
           className="flex-1 rounded-full py-3.5 flex-row items-center justify-center gap-2"
         >
@@ -167,7 +167,7 @@ function Stat({ n, label }) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-//  Categories — filter pills + 2-column grid
+//  Categories
 // ────────────────────────────────────────────────────────────────────────────
 
 function CategorySection() {
@@ -251,7 +251,11 @@ function CategoryCard({ category }) {
     >
       <View style={{ aspectRatio: 3 / 4, alignItems: 'center', justifyContent: 'center', backgroundColor: `${category.accent || '#999'}15`, position: 'relative' }}>
         {category.coverImageUrl ? (
-          <Image source={{ uri: category.coverImageUrl }} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} contentFit="cover" />
+          <Image
+            source={{ uri: category.coverImageUrl }}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+            contentFit="cover"
+          />
         ) : category.silhouette ? (
           <Svg width={100} height={100} viewBox="0 0 100 100">
             <Path d={category.silhouette} fill={category.accent || '#666'} />
@@ -363,7 +367,7 @@ function TrustBar() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-//  Saved measurements wallet
+//  Saved measurements
 // ────────────────────────────────────────────────────────────────────────────
 
 function SavedMeasurements() {
@@ -510,7 +514,7 @@ function FinalCTA() {
         </Text>
 
         <Pressable
-          onPress={() => router.push('/custom')}
+          onPress={() => {}}
           style={{ backgroundColor: '#10b981' }}
           className="w-full rounded-full py-4 flex-row items-center justify-center gap-2 mb-3"
         >

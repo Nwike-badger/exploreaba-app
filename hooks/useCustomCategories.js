@@ -28,16 +28,32 @@ const writeListCache = async (data) => {
 };
 
 const mapStyle = (s) => ({
-  id: s.slug, slug: s.slug, name: s.name, tone: s.tone,
-  imageUrl: s.imageUrl, description: s.description,
+  id: s.slug,
+  slug: s.slug,
+  name: s.name,
+  tone: s.tone,
+  imageUrl: s.imageUrl,
+  description: s.description,
 });
 
 const mapCategory = (c) => ({
-  id: c.slug, slug: c.slug, name: c.name, tagline: c.tagline,
-  description: c.description, gender: c.genderHint,
+  id: c.slug,
+  slug: c.slug,
+  name: c.name,
+  tagline: c.tagline,
+  description: c.description,
+  gender: c.genderHint,
   priceFrom: c.priceFrom != null ? Number(c.priceFrom) : 0,
-  leadTime: c.leadTime, accent: c.accent || '#0d4d2a',
-  coverImageUrl: c.coverImageUrl, silhouette: c.silhouettePath,
+  // basePrice mirrors priceFrom if backend hasn't been migrated yet
+  basePrice: c.basePrice != null
+    ? Number(c.basePrice)
+    : (c.priceFrom != null ? Number(c.priceFrom) : 0),
+  // maxPrice is null if admin hasn't set it — wizard derives basePrice * 2.5 as fallback
+  maxPrice: c.maxPrice != null ? Number(c.maxPrice) : null,
+  leadTime: c.leadTime,
+  accent: c.accent || '#0d4d2a',
+  coverImageUrl: c.coverImageUrl,
+  silhouette: c.silhouettePath,
   measurementSet: c.measurementSet || 'menFull',
   sampleStyles: (c.sampleStyles || []).map(mapStyle),
 });
@@ -64,12 +80,11 @@ export const useCustomCategories = () => {
 
   useEffect(() => {
     let cancelled = false;
-    // Hydrate from cache first (fast), then refresh from network in parallel
     (async () => {
       const cached = await readListCache();
       if (cached && !cancelled) {
         setCategories(cached);
-        setLoading(false); // show cached immediately while network refresh runs
+        setLoading(false);
       }
       fetch();
     })();
@@ -86,7 +101,6 @@ export const useCustomCategory = (slug) => {
 
   useEffect(() => {
     if (!slug) { setLoading(false); return; }
-
     let cancelled = false;
     const fetchCategory = async () => {
       try {
@@ -100,7 +114,6 @@ export const useCustomCategory = (slug) => {
         if (!cancelled) setLoading(false);
       }
     };
-
     fetchCategory();
     return () => { cancelled = true; };
   }, [slug]);
