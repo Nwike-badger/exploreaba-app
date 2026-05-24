@@ -6,6 +6,9 @@ module.exports = {
     extend: {
       fontFamily: {
         serif: ['PlayfairDisplay_700Bold'],
+        display: ['Fraunces_600SemiBold'],
+    'display-italic': ['Fraunces_400Regular_Italic'],
+    sans: ['DMSans_400Regular'],
       },
     },
   },

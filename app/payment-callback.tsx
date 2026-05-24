@@ -3,6 +3,7 @@ import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { CheckCircle, ShieldAlert, Sparkles, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import api from '@/services/axiosConfig';
 import { useCart } from '@/context/CartContext';
@@ -72,12 +73,13 @@ export default function PaymentCallbackScreen() {
       return;
     }
     try {
-      const res = await api.post(`/v1/payments/retry/${orderId}`);
+      const returnUrl = Linking.createURL('payment-callback');
+      const res = await api.post(`/v1/payments/retry/${orderId}`, { returnUrl });
       const retryUrl = res.data?.checkoutUrl;
+
       if (retryUrl) {
         // Open the retry URL in the in-app browser; same pattern as initial pay
-        const returnUrl = `exploreabamobile://payment-callback`;
-        const result = await WebBrowser.openAuthSessionAsync(retryUrl, returnUrl);
+        await WebBrowser.openAuthSessionAsync(retryUrl, returnUrl);
 
         // Restart verification flow with same orderId
         setStatus('verifying');
