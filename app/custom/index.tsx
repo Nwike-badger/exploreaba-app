@@ -232,13 +232,13 @@ function CategorySection() {
         ))}
       </ScrollView>
 
-      <View className="flex-row flex-wrap" style={{ gap: 12 }}>
-        {filtered.map((c) => (
-          <View key={c.id} style={{ width: '48.5%' }}>
-            <CategoryCard category={c} />
-          </View>
-        ))}
-      </View>
+      <View className="flex-row flex-wrap justify-between" style={{ rowGap: 12 }}>
+          {filtered.map((c) => (
+            <View key={c.id} style={{ width: '48%' }}>
+              <CategoryCard category={c} />
+            </View>
+          ))}
+     </View>
     </View>
   );
 }

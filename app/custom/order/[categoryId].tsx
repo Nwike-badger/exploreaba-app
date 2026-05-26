@@ -17,13 +17,16 @@ import {
   Copy, ArrowRight, AlertCircle, Zap,
 } from 'lucide-react-native';
 import api from '@/services/axiosConfig';
-import { useCustomCategories } from '@/hooks/useCustomCategories';
+import { useCustomCategory } from '@/hooks/useCustomCategories';
 import { toast } from '@/utils/toast';
 import {
   getMeasurementsForCategory, SIZE_CHARTS, FITTING_PREFERENCES,
   FABRIC_GRADES, EMBROIDERY_LEVELS, LEAD_TIME_OPTIONS,
   STORAGE_KEYS, WHATSAPP_NUMBER, computeEstimate,
 } from '@/lib/customDesignData';
+
+
+
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -59,22 +62,19 @@ export default function CustomDesignerWizard() {
 
   // Pull from the list hook, find this one. (No separate single-fetch hook on mobile
   // — the categories list is small and cached, so this is efficient enough.)
-  const { categories, loading: categoriesLoading, error: categoriesError } = useCustomCategories();
+  const { category: rawCategory, loading: categoriesLoading, error: categoriesError } = useCustomCategory(id);
 
-  const category = useMemo(() => {
-    if (!categories?.length) return null;
-    const raw = categories.find((c) => (c.slug || c.id) === id);
-    if (!raw) return null;
-    // Normalize backend field names so the wizard logic doesn't care which shape it gets
-    return {
-      ...raw,
-      id: raw.id || raw.slug,
-      gender: raw.gender || raw.genderHint || 'unisex',
-      basePrice: Number(raw.basePrice ?? raw.priceFrom ?? 0),
-      maxPrice: Number(raw.maxPrice ?? (raw.priceFrom || 0) * 2.5),
-      sampleStyles: raw.sampleStyles || raw.styles || [],
-    };
-  }, [categories, id]);
+const category = useMemo(() => {
+  if (!rawCategory) return null;
+  return {
+    ...rawCategory,
+    id: rawCategory.id || rawCategory.slug,
+    gender: rawCategory.gender || rawCategory.genderHint || 'unisex',
+    basePrice: Number(rawCategory.basePrice ?? rawCategory.priceFrom ?? 0),
+    maxPrice: Number(rawCategory.maxPrice ?? (rawCategory.priceFrom || 0) * 2.5),
+    sampleStyles: rawCategory.sampleStyles || rawCategory.styles || [],
+  };
+}, [rawCategory]);
 
   // Initial order shape
   const initialOrder = useMemo(() => ({
