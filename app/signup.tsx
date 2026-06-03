@@ -35,7 +35,7 @@ export default function SignupScreen() {
   } = useGoogleAuth({
     onSuccess: () => {
       toast.success('Account created with Google!');
-      router.replace('/');
+    
     },
   });
 

@@ -18,7 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { toast } from '@/utils/toast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
-import { getRolesFromToken } from '@/utils/jwt';
+import { decodeJwtPayload, isAdminUser, postLoginRoute } from '@/utils/adminUtils';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -30,22 +30,16 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const { refreshCart } = useCart();
 
-  const handleAuthSuccess = (accessToken) => {
-    const isAdmin = getRolesFromToken(accessToken);
-    if (isAdmin) {
-      toast.success("Welcome back, Admin! 🛡️");
-      router.replace('/');
-    } else {
-      toast.success('Welcome back!');
-      router.replace('/');
-    }
-  };
-
+  // Google flow — the hook handles routing itself. We just show a role-aware toast.
   const {
     signIn: googleSignIn,
     loading: googleLoading,
     ready: googleReady,
-  } = useGoogleAuth({ onSuccess: handleAuthSuccess });
+  } = useGoogleAuth({
+    onSuccess: (user) => {
+      toast.success(isAdminUser(user) ? 'Welcome back, Admin! 🛡️' : 'Welcome back!');
+    },
+  });
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -65,7 +59,14 @@ export default function LoginScreen() {
       await login(accessToken);
       await AsyncStorage.removeItem('guest_cart_id');
       refreshCart();
-      handleAuthSuccess(accessToken);
+
+      const user = decodeJwtPayload(accessToken);
+
+      console.log('JWT payload after login:', user);   // ← TEMPORARY, remove later
+console.log('isAdminUser result:', isAdminUser(user));
+      
+      toast.success(isAdminUser(user) ? 'Welcome back, Admin! 🛡️' : 'Welcome back!');
+      router.replace(postLoginRoute(user) as any);
     } catch (err) {
       setError('Invalid email or password');
       setLoading(false);
