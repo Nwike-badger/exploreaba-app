@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable, TextInput } from 'react-native';
 import { router } from 'expo-router';
-import { Search, X, ShoppingCart } from 'lucide-react-native';
+import { Search, X, ShoppingCart, Heart } from 'lucide-react-native';
 import { useCart } from '@/context/CartContext';
 
 const HomeHeader = () => {
@@ -20,10 +20,7 @@ const HomeHeader = () => {
       {/* Main bar */}
       <View className="flex-row items-center justify-between px-4 h-14">
         {/* Logo */}
-        <Pressable
-          onPress={() => router.push('/')}
-          className="flex-row items-center gap-2"
-        >
+        <Pressable onPress={() => router.push('/')} className="flex-row items-center gap-2">
           <View className="w-9 h-9 rounded-xl bg-green-600 items-center justify-center">
             <Text className="text-white font-black text-base">E</Text>
           </View>
@@ -36,18 +33,25 @@ const HomeHeader = () => {
 
         {/* Right icons */}
         <View className="flex-row items-center gap-2">
+          {/* Search */}
           <Pressable
             onPress={() => setSearchOpen((v) => !v)}
             accessibilityLabel="Search"
             className="p-2"
           >
-            {searchOpen ? (
-              <X size={22} color="#374151" />
-            ) : (
-              <Search size={22} color="#374151" />
-            )}
+            {searchOpen ? <X size={22} color="#374151" /> : <Search size={22} color="#374151" />}
           </Pressable>
 
+          {/* Saved (moved up from the tab bar) */}
+          <Pressable
+            onPress={() => router.push('/wishlist')}
+            accessibilityLabel="Saved"
+            className="p-2"
+          >
+            <Heart size={22} color="#374151" />
+          </Pressable>
+
+          {/* Cart */}
           <Pressable
             onPress={() => router.push('/cart')}
             className="flex-row items-center gap-1.5 px-3 py-2 bg-gray-50 border border-gray-100 rounded-full"

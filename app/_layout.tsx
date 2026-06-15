@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import * as NavigationBar from 'expo-navigation-bar';
+import { Platform } from 'react-native';
 import "../global.css";
 import { Stack, SplashScreen } from "expo-router";
 import Toast from "react-native-toast-message";
@@ -40,6 +42,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
+
+  useEffect(() => {
+  if (Platform.OS === 'android') {
+    NavigationBar.setButtonStyleAsync('light');                 // light icons
+    NavigationBar.setBackgroundColorAsync('#0f172a').catch(() => {}); // dark strip
+  }
+}, []);
 
   if (!fontsLoaded) return null;
 
