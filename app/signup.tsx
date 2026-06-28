@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, MailCheck } from 'lucide-react-native';
 import api from '@/services/axiosConfig';
 import { toast } from '@/utils/toast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
@@ -25,8 +25,11 @@ export default function SignupScreen() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false); // ← verification-sent state
+  const [resending, setResending] = useState(false);
 
-  const handleField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+  const handleField = (key: string, value: string) =>
+    setForm((f) => ({ ...f, [key]: value }));
 
   const {
     signIn: googleSignIn,
@@ -35,7 +38,6 @@ export default function SignupScreen() {
   } = useGoogleAuth({
     onSuccess: () => {
       toast.success('Account created with Google!');
-    
     },
   });
 
@@ -44,24 +46,77 @@ export default function SignupScreen() {
       toast.error('Please fill in all fields');
       return;
     }
-    if (form.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    if (form.password.length < 8) {
+      toast.error('Password must be at least 8 characters');
       return;
     }
     setLoading(true);
     try {
       await api.post('/v1/auth/register', form);
-      toast.success('Account created! Please log in.');
-      router.replace('/login');
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message || 'Registration failed. Try again.'
-      );
+      setSubmitted(true); // show the "check your inbox" screen
+    } catch (err: any) {
+      const data = err?.response?.data;
+      const msg = data?.message || data?.error || data?.password || 'Registration failed. Try again.';
+      toast.error(msg);
+    } finally {
       setLoading(false);
     }
   };
 
+  const resend = async () => {
+    setResending(true);
+    try {
+      await api.post('/v1/auth/resend-verification', { email: form.email });
+      toast.success('Verification email sent again.');
+    } catch {
+      toast.error('Could not resend right now. Try again shortly.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   const anyLoading = loading || googleLoading;
+
+  // ── Verification-sent screen ──
+  if (submitted) {
+    return (
+      <SafeAreaView className="flex-1 bg-white">
+        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 24 }}>
+          <View className="flex-1 justify-center items-center">
+            <View className="w-16 h-16 bg-green-50 rounded-full items-center justify-center mb-5">
+              <MailCheck size={32} color="#16a34a" />
+            </View>
+            <Text className="text-2xl font-bold text-gray-900 mb-2 text-center">
+              Check your inbox
+            </Text>
+            <Text className="text-sm text-gray-500 mb-1 text-center">
+              We sent a verification link to
+            </Text>
+            <Text className="text-sm font-bold text-gray-900 mb-6 text-center">
+              {form.email}
+            </Text>
+            <Text className="text-sm text-gray-500 leading-relaxed mb-6 text-center">
+              Tap the link in that email to activate your account. The link expires in 24 hours. Don't forget to check your spam folder.
+            </Text>
+
+            <Pressable
+              onPress={resend}
+              disabled={resending}
+              className={`w-full bg-gray-900 rounded-xl py-3.5 items-center mb-3 ${resending ? 'opacity-50' : ''}`}
+            >
+              <Text className="text-white font-bold uppercase tracking-widest text-xs">
+                {resending ? 'Sending…' : 'Resend email'}
+              </Text>
+            </Pressable>
+
+            <Pressable onPress={() => router.replace('/login')}>
+              <Text className="text-sm font-bold text-blue-600">Back to login</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -182,7 +237,7 @@ export default function SignupScreen() {
                 </Pressable>
               </View>
               <Text className="text-xs text-gray-400 mt-2">
-                Must be at least 6 characters
+                Must be at least 8 characters
               </Text>
             </View>
 

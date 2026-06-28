@@ -27,6 +27,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // ── Email verification state ──
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
+  const [resending, setResending] = useState(false);
+
   const { login } = useAuth();
   const { refreshCart } = useCart();
 
@@ -48,6 +53,7 @@ export default function LoginScreen() {
     }
     setLoading(true);
     setError('');
+    setNeedsVerification(false);
     try {
       const guestId = await AsyncStorage.getItem('guest_cart_id');
       const response = await api.post('/v1/auth/login', {
@@ -61,15 +67,30 @@ export default function LoginScreen() {
       refreshCart();
 
       const user = decodeJwtPayload(accessToken);
-
-      console.log('JWT payload after login:', user);   // ← TEMPORARY, remove later
-console.log('isAdminUser result:', isAdminUser(user));
-      
       toast.success(isAdminUser(user) ? 'Welcome back, Admin! 🛡️' : 'Welcome back!');
       router.replace(postLoginRoute(user) as any);
-    } catch (err) {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      const data = err?.response?.data;
+      if (err?.response?.status === 403 && data?.error === 'EMAIL_NOT_VERIFIED') {
+        setNeedsVerification(true);
+        setUnverifiedEmail(data.email || email.trim());
+        setError('');
+      } else {
+        setError('Invalid email or password');
+      }
       setLoading(false);
+    }
+  };
+
+  const resendVerification = async () => {
+    setResending(true);
+    try {
+      await api.post('/v1/auth/resend-verification', { email: unverifiedEmail });
+      toast.success('Verification email sent. Check your inbox.');
+    } catch {
+      toast.error('Could not resend right now. Try again shortly.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -120,6 +141,27 @@ console.log('isAdminUser result:', isAdminUser(user));
               </Text>
               <View className="flex-1 h-px bg-gray-200" />
             </View>
+
+            {/* ── Email verification banner ── */}
+            {needsVerification ? (
+              <View className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                <Text className="text-sm font-bold text-amber-800">
+                  Verify your email to continue
+                </Text>
+                <Text className="text-xs text-amber-700 mt-1 leading-relaxed">
+                  We sent a link to <Text className="font-semibold">{unverifiedEmail}</Text>. Tap it to activate your account, then log in.
+                </Text>
+                <Pressable
+                  onPress={resendVerification}
+                  disabled={resending}
+                  className={`mt-3 self-start bg-amber-100 px-4 py-2 rounded-lg ${resending ? 'opacity-50' : ''}`}
+                >
+                  <Text className="text-xs font-bold text-amber-900">
+                    {resending ? 'Sending…' : 'Resend verification email'}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
 
             {/* Error */}
             {error ? (
