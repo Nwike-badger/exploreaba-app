@@ -6,8 +6,22 @@ import { router } from 'expo-router';
 import { toast } from '@/utils/toast';
 
 export const TOKEN_KEY = 'token';
+export const REFRESH_TOKEN_KEY = 'refreshToken';
 const GUEST_ID_KEY = 'guest_cart_id';
 const SESSION_ID_KEY = 'exab_session_id';
+
+const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+// ─── Token persistence (SecureStore — encrypted) ─────────────────────────────
+export const setAuthTokens = async (accessToken, refreshToken) => {
+  if (accessToken) await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+  if (refreshToken) await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+};
+
+export const clearAuthTokens = async () => {
+  await SecureStore.deleteItemAsync(TOKEN_KEY);
+  await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+};
 
 const isTokenExpired = (token) => {
   try {
@@ -21,10 +35,11 @@ const isTokenExpired = (token) => {
 };
 
 const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_BASE_URL,
+  baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
+// ─── Request Interceptor ──────────────────────────────────────────────────────
 api.interceptors.request.use(
   async (config) => {
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
@@ -37,7 +52,6 @@ api.interceptors.request.use(
     }
     config.headers['X-Guest-ID'] = guestId;
 
-    // NEW: session ID for analytics/tracking — auto-attached to every request
     let sessionId = await AsyncStorage.getItem(SESSION_ID_KEY);
     if (!sessionId) {
       sessionId = Crypto.randomUUID();
@@ -50,12 +64,27 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// ─── Response Interceptor: silent refresh on 401 ─────────────────────────────
 let sessionExpiredToastShown = false;
+let isRefreshing = false;
+let refreshQueue = [];
+
+const flushQueue = (newToken) => {
+  refreshQueue.forEach(({ resolve, reject, originalRequest }) => {
+    if (newToken) {
+      originalRequest.headers.Authorization = `Bearer ${newToken}`;
+      resolve(api(originalRequest));
+    } else {
+      reject(originalRequest.__error);
+    }
+  });
+  refreshQueue = [];
+};
 
 const handleSessionExpired = async () => {
   if (sessionExpiredToastShown) return;
   sessionExpiredToastShown = true;
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
+  await clearAuthTokens();
   toast("For your security, you've been signed out. Please log in again.", {
     icon: '🔐', duration: 4000,
   });
@@ -66,19 +95,66 @@ api.interceptors.response.use(
   (response) => { sessionExpiredToastShown = false; return response; },
   async (error) => {
     if (!error.response) return Promise.reject(error);
+
     const { status } = error.response;
+    const originalRequest = error.config;
+    const url = originalRequest?.url || '';
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
-    if (status === 401) {
-      if (token) handleSessionExpired();
-    } else if (status === 403) {
+    const isAuthFlow = url.includes('/v1/auth/');
+
+    // ── 401 → one silent refresh, then replay the original request ──
+    if (status === 401 && token && !isAuthFlow && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          originalRequest.__error = error;
+          refreshQueue.push({ resolve, reject, originalRequest });
+        });
+      }
+
+      isRefreshing = true;
+      const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+
+      if (!refreshToken) {
+        isRefreshing = false;
+        await handleSessionExpired();
+        return Promise.reject(error);
+      }
+
+      try {
+        // Bare axios (NOT `api`) so a failing refresh can't re-enter this interceptor.
+        const { data } = await axios.post(`${BASE_URL}/v1/auth/refresh`, { refreshToken });
+        await setAuthTokens(data.accessToken, data.refreshToken);
+        isRefreshing = false;
+        flushQueue(data.accessToken);
+        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        isRefreshing = false;
+        flushQueue(null);
+        await handleSessionExpired();
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // ── 401 a refresh couldn't fix (already retried) → sign out ──
+    if (status === 401 && token && !isAuthFlow) {
+      await handleSessionExpired();
+      return Promise.reject(error);
+    }
+
+    // ── 403 handling ──
+    if (status === 403) {
       if (token && isTokenExpired(token)) {
-        handleSessionExpired();
-      } else {
+        await handleSessionExpired();
+      } else if (!isAuthFlow) {
         toast("You don't have access to do that. If you think this is a mistake, please contact support.", {
           icon: '🚫', duration: 5000,
         });
       }
     }
+
     return Promise.reject(error);
   }
 );

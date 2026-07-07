@@ -61,8 +61,8 @@ export default function LoginScreen() {
         password,
         guestId,
       });
-      const { accessToken } = response.data;
-      await login(accessToken);
+      const { accessToken, refreshToken } = response.data;
+      await login(accessToken, refreshToken);
       await AsyncStorage.removeItem('guest_cart_id');
       refreshCart();
 

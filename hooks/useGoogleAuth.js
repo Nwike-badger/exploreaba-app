@@ -73,9 +73,10 @@ export const useGoogleAuth = ({ onSuccess, onError } = {}) => {
         token: idToken,
         guestId,
       });
-      const { accessToken } = res.data;
+      const { accessToken, refreshToken } = res.data;
 
-      await login(accessToken);
+      await login(accessToken, refreshToken);
+      
       await AsyncStorage.removeItem('guest_cart_id');
       refreshCart();
 

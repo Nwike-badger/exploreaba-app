@@ -7,7 +7,7 @@ import React, {
   useMemo,
 } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import api, { TOKEN_KEY } from '@/services/axiosConfig';
+import api, { TOKEN_KEY, setAuthTokens, clearAuthTokens } from '@/services/axiosConfig';
 import { toast } from '@/utils/toast';
 
 const AuthContext = createContext();
@@ -18,17 +18,23 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const logout = useCallback(async (showToast = true) => {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    // Best-effort server logout — deletes the refresh token so it can't be reused.
+    const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    if (token) {
+      api.post('/v1/auth/logout', {}, { headers: { Authorization: `Bearer ${token}` } })
+         .catch(() => {}); // local sign-out happens regardless
+    }
+
+    await clearAuthTokens();
     setUser(null);
     setIsAuthenticated(false);
     if (showToast) {
       toast("You've been signed out. See you soon! 👋", { duration: 3000 });
     }
-    // Navigation handled by the calling screen via expo-router
   }, []);
 
-  const login = useCallback(async (token, userData = null) => {
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
+  const login = useCallback(async (accessToken, refreshToken = null, userData = null) => {
+    await setAuthTokens(accessToken, refreshToken);
     setIsAuthenticated(true);
 
     if (userData) {
@@ -50,6 +56,7 @@ export const AuthProvider = ({ children }) => {
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
       if (token) {
         try {
+          // Expired access token → interceptor refreshes silently → this still succeeds.
           const res = await api.get('/v1/users/me');
           setUser(res.data);
           setIsAuthenticated(true);

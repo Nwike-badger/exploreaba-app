@@ -33,9 +33,10 @@ export default function VerifyEmailScreen() {
     api.post('/v1/auth/verify-email', { token })
       .then(async (res) => {
         const accessToken = res.data?.accessToken;
+        const refreshToken = res.data?.refreshToken;
         setStatus('success');
         if (accessToken) {
-          await login(accessToken);
+          await login(accessToken, refreshToken);
           setTimeout(() => router.replace('/'), 1600);
         } else {
           setTimeout(() => router.replace('/login'), 1600);
