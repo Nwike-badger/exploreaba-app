@@ -39,8 +39,8 @@ const CategoryItem = ({ category, priority, imageOverride }) => {
   const uri = imageOverride || category.imageUrl;
   const showImage = uri && !imgError;
   return (
-    <Pressable onPress={() => router.push(`/category/${category.slug}`)} className="items-center w-16">
-      <View className="w-14 h-14 rounded-full bg-gray-100 p-[2px]">
+    <Pressable onPress={() => router.push(`/category/${category.slug}`)} className="items-center w-[88px]">
+      <View className="w-20 h-20 rounded-full bg-gray-100 p-[2.5px]">
         <View className="w-full h-full rounded-full overflow-hidden bg-gray-50 border-2 border-white items-center justify-center">
           {showImage ? (
             <Image
@@ -51,11 +51,11 @@ const CategoryItem = ({ category, priority, imageOverride }) => {
               onError={() => setImgError(true)}
             />
           ) : (
-            <Layers size={18} color="#34d399" strokeWidth={1.5} />
+            <Layers size={22} color="#34d399" strokeWidth={1.5} />
           )}
         </View>
       </View>
-      <Text className="mt-1.5 text-[10px] font-bold text-gray-500 text-center" numberOfLines={2}>
+      <Text className="mt-2 text-[12px] font-bold text-gray-500 text-center" numberOfLines={2}>
         {category.name}
       </Text>
     </Pressable>
@@ -118,8 +118,8 @@ const CategoryBar = () => {
       <View className="bg-white border-b border-gray-100">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 10, gap: 12 }}>
           {[...Array(7)].map((_, i) => (
-            <View key={i} className="items-center w-16">
-              <View className="w-14 h-14 rounded-full bg-gray-100" />
+            <View key={i} className="items-center w-[88px]">
+              <View className="w-20 h-20 rounded-full bg-gray-100" />
               <View className="w-10 h-2 mt-2 bg-gray-100 rounded-full" />
             </View>
           ))}

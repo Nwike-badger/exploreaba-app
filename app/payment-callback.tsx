@@ -1,125 +1,202 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { CheckCircle, ShieldAlert, Sparkles, ArrowRight, ArrowLeft } from 'lucide-react-native';
+import { CheckCircle, ShieldAlert, Sparkles, ArrowRight, ArrowLeft, Clock, PackageSearch } from 'lucide-react-native';
 import api from '@/services/axiosConfig';
 import { useCart } from '@/context/CartContext';
 
-const MAX_ATTEMPTS = 8;
+const MAX_ATTEMPTS = 10;
 const POLL_INTERVAL = 3000;
 const INITIAL_DELAY = 2500;
+
+// What our SERVER reports (the only source of truth for a confirmed order).
+const SUCCESS_STATUSES = ['PROCESSING', 'CONFIRMED', 'SHIPPED', 'DELIVERED'];
+const DEAD_STATUSES = ['CANCELLED', 'FAILED'];
+
+// Redirect hints from the gateway. NEVER trusted as proof of payment —
+// used ONLY to choose the right message if our own polling times out.
+// Flutterwave sends "successful"/"cancelled"; Monnify sends "PAID".
+const POSITIVE_HINTS = ['completed', 'successful', 'success', 'paid'];
+const CANCEL_HINTS = ['cancelled', 'canceled'];
 
 export default function PaymentCallbackScreen() {
   const params = useLocalSearchParams();
   const { clearCart, refreshCart } = useCart();
 
-  // Same param names as the web flow — paymentReference == orderId in Monnify's convention
-  const orderId = params.paymentReference;
-  const monnifyStatus = params.paymentStatus;
-  const transactionRef = params.transactionReference;
+  // Checkout always forwards paymentReference=orderId, so this is robust across
+  // gateways. tx_ref covers Flutterwave; reference covers Paystack/Monnify.
+  const orderId =
+    params.paymentReference ||
+    params.reference ||
+    params.tx_ref;
 
-  const [status, setStatus] = useState('verifying');
+  // Flutterwave: transaction_id · Monnify: transactionReference
+  const transactionRef =
+    params.transactionReference ||
+    params.transaction_id;
+
+  // Flutterwave: ?status= · Monnify: ?paymentStatus=
+  const redirectHint = (params.status || params.paymentStatus || '')
+    .toString()
+    .toLowerCase();
+
+  const [status, setStatus] = useState('verifying');   // verifying | success | pending | failed
+  const [wasCancelled, setWasCancelled] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState('');
+
   const timerRef = useRef(null);
+  const mountedRef = useRef(true);
 
-  useEffect(() => {
-    if (!orderId || (monnifyStatus && monnifyStatus !== 'PAID')) {
-      // User cancelled in the browser, OR Monnify reported a non-PAID status
-      setStatus('failed');
-      return;
-    }
-
+  // Starts (or restarts) the polling loop. Hints only affect the timeout outcome.
+  const startVerification = useCallback((positiveHint, cancelHint) => {
+    if (!orderId) { setStatus('failed'); return; }
     let attempts = 0;
 
+    // Polling ran out with no definite server answer — order is still
+    // PENDING_PAYMENT. Decide the message from the gateway hint.
+    const settleOnTimeout = () => {
+      if (!mountedRef.current) return;
+      if (positiveHint) {
+        // Gateway said the charge went through — our webhook is just late.
+        clearCart().finally(() => { if (mountedRef.current) refreshCart(); });
+        setStatus('pending');
+      } else if (cancelHint) {
+        setWasCancelled(true);
+        setStatus('failed');
+      } else {
+        setStatus('failed');
+      }
+    };
+
     const poll = async () => {
+      if (!mountedRef.current) return;
       attempts++;
       setAttemptCount(attempts);
 
       try {
-        const res = await api.get(`/v1/orders/verify/${orderId}`);
-        const orderStatus = res.data.status;
+        // Smart verify: fast path reads our DB, slow path asks the gateway of record.
+        // _t cache-busts so we never get served a stale 304.
+        const res = await api.get(`/v1/payments/verify/${orderId}`, {
+          params: { _t: Date.now() },
+        });
+        const orderStatus = res.data?.status;
 
-        if (['PROCESSING', 'CONFIRMED', 'SHIPPED', 'DELIVERED'].includes(orderStatus)) {
+        if (SUCCESS_STATUSES.includes(orderStatus)) {
           await clearCart();
-          refreshCart();
-          setStatus('success');
+          if (mountedRef.current) refreshCart();
+          if (mountedRef.current) setStatus('success');
           return;
         }
 
+        if (DEAD_STATUSES.includes(orderStatus)) {
+          if (mountedRef.current) {
+            setWasCancelled(cancelHint || orderStatus === 'CANCELLED');
+            setStatus('failed');
+          }
+          return;
+        }
+
+        // Still PENDING_PAYMENT — keep polling until we run out.
         if (attempts < MAX_ATTEMPTS) {
           timerRef.current = setTimeout(poll, POLL_INTERVAL);
         } else {
-          setStatus('failed');
+          settleOnTimeout();
         }
       } catch {
         if (attempts < MAX_ATTEMPTS) {
           timerRef.current = setTimeout(poll, POLL_INTERVAL);
         } else {
-          setStatus('failed');
+          settleOnTimeout();
         }
       }
     };
 
     timerRef.current = setTimeout(poll, INITIAL_DELAY);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [orderId, monnifyStatus, clearCart, refreshCart]);
+  }, [orderId, clearCart, refreshCart]);
 
-  const handleRetry = async () => {
+  useEffect(() => {
+    mountedRef.current = true;
+
     if (!orderId) {
-      router.replace('/checkout');
+      setStatus('failed');
       return;
     }
+
+    startVerification(
+      POSITIVE_HINTS.includes(redirectHint),
+      CANCEL_HINTS.includes(redirectHint),
+    );
+
+    return () => {
+      mountedRef.current = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+    // Only orderId matters; hint params are stable for a given orderId.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
+
+  // Retry reuses the SAME order on the backend — no new stock hold, no double charge.
+  const handleRetry = async () => {
+    if (!orderId) { router.replace('/checkout'); return; }
+    setRetrying(true);
+    setRetryError('');
     try {
       const returnUrl = Linking.createURL('payment-callback');
       const res = await api.post(`/v1/payments/retry/${orderId}`, { returnUrl });
       const retryUrl = res.data?.checkoutUrl;
 
-      if (retryUrl) {
-        // Open the retry URL in the in-app browser; same pattern as initial pay
-        await WebBrowser.openAuthSessionAsync(retryUrl, returnUrl);
-
-        // Restart verification flow with same orderId
-        setStatus('verifying');
-        setAttemptCount(0);
-        let attempts = 0;
-        const poll = async () => {
-          attempts++;
-          setAttemptCount(attempts);
-          try {
-            const r = await api.get(`/v1/orders/verify/${orderId}`);
-            if (['PROCESSING', 'CONFIRMED', 'SHIPPED', 'DELIVERED'].includes(r.data.status)) {
-              await clearCart();
-              refreshCart();
-              setStatus('success');
-              return;
-            }
-            if (attempts < MAX_ATTEMPTS) setTimeout(poll, POLL_INTERVAL);
-            else setStatus('failed');
-          } catch {
-            if (attempts < MAX_ATTEMPTS) setTimeout(poll, POLL_INTERVAL);
-            else setStatus('failed');
-          }
-        };
-        setTimeout(poll, INITIAL_DELAY);
+      if (!retryUrl) {
+        setRetrying(false);
+        router.replace('/checkout');
+        return;
       }
-    } catch {
-      router.replace('/checkout');
+
+      // Reopen the gateway in the in-app browser; same pattern as initial pay.
+      const result = await WebBrowser.openAuthSessionAsync(retryUrl, returnUrl);
+
+      // Pull any fresh hint from the retry redirect.
+      let hint = '';
+      if (result.type === 'success' && result.url) {
+        const qp = Linking.parse(result.url).queryParams || {};
+        hint = (qp.status || qp.paymentStatus || '').toString().toLowerCase();
+      }
+
+      if (!mountedRef.current) return;
+      setRetrying(false);
+      setWasCancelled(false);
+      setStatus('verifying');
+      setAttemptCount(0);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      startVerification(
+        POSITIVE_HINTS.includes(hint),
+        CANCEL_HINTS.includes(hint),
+      );
+    } catch (e) {
+      if (!mountedRef.current) return;
+      setRetrying(false);
+      setRetryError(
+        e?.response?.data?.error ||
+        'Could not restart payment. Please try again from your cart.'
+      );
     }
   };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center px-6">
 
+      {/* ── VERIFYING ─────────────────────────────────────────────── */}
       {status === 'verifying' && (
         <View className="bg-white rounded-3xl border border-gray-100 p-8 w-full max-w-md items-center">
           <View className="w-20 h-20 bg-blue-50 rounded-full items-center justify-center mb-6 border border-blue-100">
             <ActivityIndicator size="large" color="#2563eb" />
           </View>
           <Text className="text-xl font-black text-gray-900 mb-2 tracking-tight">
-            Securing Your Order
+            Confirming Your Payment
           </Text>
           <Text className="text-sm text-gray-500 text-center mb-6">
             Please don't close this screen. We're confirming your payment with the bank.
@@ -129,7 +206,7 @@ export default function PaymentCallbackScreen() {
             <View className="w-full bg-gray-50 rounded-2xl p-4 border border-gray-100">
               <View className="flex-row justify-between mb-2">
                 <Text className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                  Verification
+                  Verifying
                 </Text>
                 <Text className="text-[10px] text-blue-600 font-black">
                   {Math.round((attemptCount / MAX_ATTEMPTS) * 100)}%
@@ -146,6 +223,7 @@ export default function PaymentCallbackScreen() {
         </View>
       )}
 
+      {/* ── SUCCESS ───────────────────────────────────────────────── */}
       {status === 'success' && (
         <View className="bg-white rounded-3xl border border-gray-100 p-8 w-full max-w-md items-center">
           <View className="w-20 h-20 bg-green-50 rounded-full items-center justify-center mb-6 border border-green-100">
@@ -187,25 +265,88 @@ export default function PaymentCallbackScreen() {
         </View>
       )}
 
+      {/* ── PENDING (payment received, still finalizing) ──────────── */}
+      {status === 'pending' && (
+        <View className="bg-white rounded-3xl border border-gray-100 p-8 w-full max-w-md items-center">
+          <View className="w-20 h-20 bg-amber-50 rounded-full items-center justify-center mb-6 border border-amber-100">
+            <Clock size={42} color="#f59e0b" />
+          </View>
+          <Text className="text-2xl font-black text-gray-900 mb-2 tracking-tight">
+            Payment Processing
+          </Text>
+          <Text className="text-sm text-gray-500 text-center mb-2 leading-relaxed">
+            We've received your payment and are finalizing your order. This can take a few minutes for bank transfers.
+          </Text>
+          <Text className="text-xs text-gray-400 text-center mb-6">
+            You'll get a confirmation email the moment it's complete — you can safely close this screen.
+          </Text>
+
+          {transactionRef && (
+            <View className="bg-gray-50 border border-gray-100 rounded-2xl p-3 mb-6 w-full items-center">
+              <Text className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">
+                Transaction ID
+              </Text>
+              <Text className="text-xs font-mono font-black text-gray-900 bg-white px-3 py-1 rounded-lg border border-gray-200">
+                {transactionRef}
+              </Text>
+            </View>
+          )}
+
+          <View className="flex-row gap-3 w-full">
+            <Pressable
+              onPress={() => router.replace('/orders')}
+              className="flex-1 bg-gray-900 py-4 rounded-xl flex-row items-center justify-center gap-2"
+            >
+              <PackageSearch size={15} color="#fff" />
+              <Text className="text-white font-bold text-sm">Check Order</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.replace('/')}
+              className="flex-1 bg-blue-50 border border-blue-100 py-4 rounded-xl items-center justify-center"
+            >
+              <Text className="text-blue-700 font-bold text-sm">Keep Shopping</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {/* ── FAILED / CANCELLED ────────────────────────────────────── */}
       {status === 'failed' && (
         <View className="bg-white rounded-3xl border border-gray-100 p-8 w-full max-w-md items-center">
           <View className="w-20 h-20 bg-red-50 rounded-full items-center justify-center mb-6 border border-red-100">
             <ShieldAlert size={44} color="#ef4444" />
           </View>
           <Text className="text-2xl font-black text-gray-900 mb-2 tracking-tight">
-            Payment Failed
+            {wasCancelled ? 'Payment Cancelled' : 'Payment Not Completed'}
           </Text>
           <Text className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
-            We couldn't authorize your payment. Your items are still in your cart. If you were debited, the charge will be reversed.
+            {wasCancelled
+              ? 'No charge was made. Your order is saved — you can complete payment whenever you\'re ready.'
+              : 'We couldn\'t complete your payment. Your items are still saved. If you were charged, it will be reversed automatically.'}
           </Text>
+
+          {retryError ? (
+            <View className="w-full bg-red-50 border border-red-100 rounded-xl p-3 mb-4">
+              <Text className="text-xs font-semibold text-red-600 text-center">{retryError}</Text>
+            </View>
+          ) : null}
 
           <View className="w-full gap-3 mb-4">
             <Pressable
               onPress={handleRetry}
-              className="bg-gray-900 py-4 rounded-xl flex-row items-center justify-center gap-2"
+              disabled={retrying}
+              className={`bg-gray-900 py-4 rounded-xl flex-row items-center justify-center gap-2 ${retrying ? 'opacity-60' : ''}`}
             >
-              <Text className="text-white font-bold text-sm">Try Another Method</Text>
-              <ArrowRight size={14} color="#fff" />
+              {retrying ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text className="text-white font-bold text-sm">
+                    {wasCancelled ? 'Complete Payment' : 'Try Again'}
+                  </Text>
+                  <ArrowRight size={14} color="#fff" />
+                </>
+              )}
             </Pressable>
             <Pressable
               onPress={() => router.replace('/orders')}

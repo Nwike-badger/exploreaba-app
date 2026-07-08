@@ -295,7 +295,6 @@ export default function CheckoutScreen() {
         })),
         shippingAddress: address,
         billingAddress: address,
-        paymentMethod: 'MONNIFY',
       });
       const order = orderRes.data;
       if (!order?.orderId) throw new Error('Order created but no orderId returned.');
@@ -503,7 +502,7 @@ export default function CheckoutScreen() {
           <View className="flex-row items-center justify-center gap-1.5 mt-2">
             <ShieldCheck size={12} color="#16a34a" />
             <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
-              Secured by Monnify
+              Powered by Flutterwave · Paystack
             </Text>
           </View>
         </View>

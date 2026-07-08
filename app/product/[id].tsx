@@ -9,6 +9,7 @@ import ProductGallery from '@/components/product/ProductGallery';
 import ProductInfo from '@/components/product/ProductInfo';
 import TrustInfo from '@/components/product/TrustInfo';
 import StickyAddToCart from '@/components/product/StickyAddToCart';
+import HeaderActions from '@/components/HeaderActions';
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -180,17 +181,18 @@ export default function ProductScreen() {
       <SafeAreaView edges={['top']} className="bg-white">
         {/* Header */}
         <View className="flex-row items-center px-3 h-12 border-b border-gray-100">
-          <Pressable
-            onPress={() => router.back()}
-            className="w-10 h-10 items-center justify-center"
-            accessibilityLabel="Back"
-          >
-            <ChevronLeft size={24} color="#374151" />
-          </Pressable>
-          <Text className="flex-1 text-sm font-bold text-gray-700" numberOfLines={1}>
-            {product.name}
-          </Text>
-        </View>
+        <Pressable
+          onPress={() => router.back()}
+          className="w-10 h-10 items-center justify-center"
+          accessibilityLabel="Back"
+        >
+          <ChevronLeft size={24} color="#374151" />
+        </Pressable>
+        <Text className="flex-1 text-sm font-bold text-gray-700" numberOfLines={1}>
+          {product.name}
+        </Text>
+        <HeaderActions />
+      </View>
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>

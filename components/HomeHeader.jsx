@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { View, Text, Pressable, TextInput } from 'react-native';
 import { router } from 'expo-router';
-import { Search, X, ShoppingCart, Heart } from 'lucide-react-native';
-import { useCart } from '@/context/CartContext';
+import { Search, X } from 'lucide-react-native';
+import HeaderActions from '@/components/HeaderActions';
 
 const HomeHeader = () => {
-  const { cartCount, cartTotal } = useCart();
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -17,9 +16,7 @@ const HomeHeader = () => {
 
   return (
     <View className="bg-white border-b border-gray-100">
-      {/* Main bar */}
       <View className="flex-row items-center justify-between px-4 h-14">
-        {/* Logo */}
         <Pressable onPress={() => router.push('/')} className="flex-row items-center gap-2">
           <View className="w-9 h-9 rounded-xl bg-green-600 items-center justify-center">
             <Text className="text-white font-black text-base">E</Text>
@@ -31,57 +28,18 @@ const HomeHeader = () => {
           </Text>
         </Pressable>
 
-        {/* Right icons */}
         <View className="flex-row items-center gap-2">
-          {/* Search */}
-          <Pressable
-            onPress={() => setSearchOpen((v) => !v)}
-            accessibilityLabel="Search"
-            className="p-2"
-          >
+          <Pressable onPress={() => setSearchOpen((v) => !v)} accessibilityLabel="Search" className="p-2">
             {searchOpen ? <X size={22} color="#374151" /> : <Search size={22} color="#374151" />}
           </Pressable>
-
-          {/* Saved (moved up from the tab bar) */}
-          <Pressable
-            onPress={() => router.push('/wishlist')}
-            accessibilityLabel="Saved"
-            className="p-2"
-          >
-            <Heart size={22} color="#374151" />
-          </Pressable>
-
-          {/* Cart */}
-          <Pressable
-            onPress={() => router.push('/cart')}
-            className="flex-row items-center gap-1.5 px-3 py-2 bg-gray-50 border border-gray-100 rounded-full"
-          >
-            <View>
-              <ShoppingCart size={18} color="#374151" />
-              {cartCount > 0 && (
-                <View className="absolute -top-2 -right-2 bg-green-600 w-4 h-4 rounded-full border-2 border-white items-center justify-center">
-                  <Text className="text-white text-[8px] font-black">
-                    {cartCount > 99 ? '99+' : cartCount}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text className="text-xs font-bold text-gray-700">
-              ₦{cartTotal ? cartTotal.toLocaleString() : '0'}
-            </Text>
-          </Pressable>
+          <HeaderActions showCartTotal />
         </View>
       </View>
 
-      {/* Search drawer */}
       {searchOpen && (
         <View className="px-3 pb-3 bg-gray-50 border-t border-gray-100">
           <View className="relative mt-3">
-            <Search
-              size={16}
-              color="#9CA3AF"
-              style={{ position: 'absolute', left: 12, top: 14, zIndex: 1 }}
-            />
+            <Search size={16} color="#9CA3AF" style={{ position: 'absolute', left: 12, top: 14, zIndex: 1 }} />
             <TextInput
               value={query}
               onChangeText={setQuery}
