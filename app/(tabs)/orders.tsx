@@ -5,7 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  Package, Clock, CheckCircle, Truck, XCircle, RefreshCw, ShoppingBag, AlertCircle,
+  Package, Clock, CheckCircle, Truck, XCircle, RefreshCw, ShoppingBag, AlertCircle, LogIn,
 } from 'lucide-react-native';
 import api from '@/services/axiosConfig';
 import { useAuth } from '@/context/AuthContext';
@@ -68,13 +68,13 @@ export default function OrdersScreen() {
     }
   }, []);
 
+  // No auto-redirect here — an unauthenticated user just sees the in-screen
+  // sign-in prompt below. Calling router.replace() synchronously from a focus
+  // effect races Fabric's view-mounting on the tab transition and crashes
+  // release builds; rendering in place avoids that entirely.
   useFocusEffect(
     useCallback(() => {
-      if (authLoading) return;
-      if (!isAuthenticated) {
-        router.replace('/login');
-        return;
-      }
+      if (authLoading || !isAuthenticated) return;
       fetchOrders();
     }, [authLoading, isAuthenticated, fetchOrders])
   );
@@ -85,15 +85,34 @@ export default function OrdersScreen() {
     ...orders.filter((o) => o.orderStatus === 'PENDING_PAYMENT'),
   ];
 
+  if (authLoading) {
+    return (
+      <View className="flex-1 bg-gray-50">
+        <OrdersHeader />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <View className="flex-1 bg-gray-50">
+        <OrdersHeader />
+        <SignInPrompt
+          title="Sign in to view your orders"
+          subtitle="Log in to see your order history and track deliveries."
+        />
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-gray-50">
-      <SafeAreaView edges={['top']} className="bg-white">
-        <View className="px-5 h-14 justify-center border-b border-gray-100">
-          <Text className="text-lg font-black text-gray-900 tracking-tight">My Orders</Text>
-        </View>
-      </SafeAreaView>
+      <OrdersHeader />
 
-      {(authLoading || loading) ? (
+      {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#2563eb" />
           <Text className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-3">
@@ -139,7 +158,6 @@ export default function OrdersScreen() {
                 className={`bg-white rounded-2xl border overflow-hidden
                   ${isPending ? 'border-orange-100 opacity-70' : 'border-gray-100'}`}
               >
-                {/* Top bar with date / total / number */}
                 <View className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex-row justify-between">
                   <View>
                     <Text className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">
@@ -165,7 +183,6 @@ export default function OrdersScreen() {
                   </View>
                 </View>
 
-                {/* Body */}
                 <View className="px-4 py-3">
                   <View
                     className="flex-row items-center gap-1.5 self-start px-2.5 py-1 rounded-md border mb-2"
@@ -219,6 +236,34 @@ export default function OrdersScreen() {
           }
         />
       )}
+    </View>
+  );
+}
+
+function OrdersHeader() {
+  return (
+    <SafeAreaView edges={['top']} className="bg-white">
+      <View className="px-5 h-14 justify-center border-b border-gray-100">
+        <Text className="text-lg font-black text-gray-900 tracking-tight">My Orders</Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function SignInPrompt({ title, subtitle }) {
+  return (
+    <View className="flex-1 items-center justify-center px-8">
+      <View className="w-20 h-20 bg-gray-50 rounded-full items-center justify-center mb-5 border border-gray-100">
+        <LogIn size={32} color="#9CA3AF" />
+      </View>
+      <Text className="text-xl font-black text-gray-900 mb-2 text-center">{title}</Text>
+      <Text className="text-sm text-gray-500 mb-6 text-center">{subtitle}</Text>
+      <Pressable
+        onPress={() => router.push('/login')}
+        className="bg-gray-900 px-6 py-3 rounded-xl"
+      >
+        <Text className="text-white text-sm font-bold">Log In</Text>
+      </Pressable>
     </View>
   );
 }

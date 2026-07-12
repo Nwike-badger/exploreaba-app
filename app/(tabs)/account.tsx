@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import {
   User, MapPin, Package, Settings, AlertCircle, CheckCircle,
-  LogOut, ShieldCheck, ChevronRight,
+  LogOut, ShieldCheck, ChevronRight, LogIn,
 } from 'lucide-react-native';
 import api from '@/services/axiosConfig';
 import { useAuth } from '@/context/AuthContext';
@@ -19,6 +19,7 @@ export default function AccountScreen() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchFailed, setFetchFailed] = useState(false);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [saving, setSaving] = useState(false);
   const [addressForm, setAddressForm] = useState({
@@ -28,6 +29,7 @@ export default function AccountScreen() {
   const fetchUser = useCallback(async (mode = 'initial') => {
     if (mode === 'refresh') setRefreshing(true);
     else setLoading(true);
+    setFetchFailed(false);
 
     try {
       const res = await api.get('/v1/users/me');
@@ -39,22 +41,23 @@ export default function AccountScreen() {
         setIsEditingAddress(true);
       }
     } catch {
-      // Not authenticated or backend error — bounce to login
-      router.replace('/login');
+      // Token invalid/expired — show the sign-in prompt in place instead of
+      // navigating from inside a data callback (axiosConfig's interceptor
+      // already handles genuine session-expiry redirects on its own).
+      setFetchFailed(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  // Re-fetch whenever the tab comes into focus (e.g., after editing address elsewhere)
+  // Re-fetch whenever the tab comes into focus. No auto-redirect — an
+  // unauthenticated user sees the in-screen sign-in prompt below. Navigating
+  // synchronously during a focus-triggered mount is what caused the Fabric
+  // "addViewAt" crash in the release build.
   useFocusEffect(
     useCallback(() => {
-      if (authLoading) return;
-      if (!isAuthenticated) {
-        router.replace('/login');
-        return;
-      }
+      if (authLoading || !isAuthenticated) return;
       fetchUser();
     }, [authLoading, isAuthenticated, fetchUser])
   );
@@ -84,7 +87,44 @@ export default function AccountScreen() {
     router.replace('/');
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+        <ActivityIndicator size="large" color="#2563eb" />
+      </SafeAreaView>
+    );
+  }
+
+  if (!isAuthenticated || fetchFailed) {
+    return (
+      <View className="flex-1 bg-gray-50">
+        <SafeAreaView edges={['top']} className="bg-white">
+          <View className="px-5 h-14 justify-center border-b border-gray-100">
+            <Text className="text-lg font-black text-gray-900 tracking-tight">My Account</Text>
+          </View>
+        </SafeAreaView>
+        <View className="flex-1 items-center justify-center px-8">
+          <View className="w-20 h-20 bg-gray-50 rounded-full items-center justify-center mb-5 border border-gray-100">
+            <LogIn size={32} color="#9CA3AF" />
+          </View>
+          <Text className="text-xl font-black text-gray-900 mb-2 text-center">
+            Sign in to your account
+          </Text>
+          <Text className="text-sm text-gray-500 mb-6 text-center">
+            Log in to manage your profile, address, and orders.
+          </Text>
+          <Pressable
+            onPress={() => router.push('/login')}
+            className="bg-gray-900 px-6 py-3 rounded-xl"
+          >
+            <Text className="text-white text-sm font-bold">Log In</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center">
         <ActivityIndicator size="large" color="#2563eb" />
@@ -121,7 +161,6 @@ export default function AccountScreen() {
           />
         }
       >
-        {/* Profile completion nudge */}
         {!isAddressComplete && (
           <View className="bg-orange-50 border border-orange-200 p-4 rounded-2xl flex-row items-start gap-3">
             <View className="bg-white p-2 rounded-xl">
@@ -138,7 +177,6 @@ export default function AccountScreen() {
           </View>
         )}
 
-        {/* Identity card */}
         <View className="bg-white rounded-2xl border border-gray-100 p-5 flex-row items-center gap-4">
           <View className="w-16 h-16 bg-gray-900 rounded-full items-center justify-center">
             <Text className="text-white text-2xl font-black">
@@ -159,7 +197,6 @@ export default function AccountScreen() {
           </View>
         </View>
 
-        {/* Address section */}
         <View className="bg-white rounded-2xl border border-gray-100 p-5">
           <View className="flex-row items-center justify-between mb-4">
             <View className="flex-row items-center gap-2">
@@ -251,7 +288,6 @@ export default function AccountScreen() {
           )}
         </View>
 
-        {/* Menu */}
         <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <MenuRow
             icon={<Package size={18} color="#374151" />}
@@ -277,7 +313,6 @@ export default function AccountScreen() {
           )}
         </View>
 
-        {/* Logout */}
         <Pressable
           onPress={handleLogout}
           className="bg-white rounded-2xl border border-gray-100 flex-row items-center gap-3 px-5 py-4"
