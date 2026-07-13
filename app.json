@@ -43,7 +43,13 @@
       ],
       "expo-secure-store",
       "expo-video",
-      "expo-font"
+      "expo-font",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.YOUR_IOS_CLIENT_ID_REVERSED"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
