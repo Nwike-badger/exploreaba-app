@@ -1,3 +1,4 @@
+import '@/utils/globalErrorHandler';
 import { useEffect } from 'react';
 import * as NavigationBar from 'expo-navigation-bar';
 import { Platform } from 'react-native';
@@ -9,6 +10,7 @@ import { useFonts, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-d
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import {
   Fraunces_400Regular,
   Fraunces_500Medium,
@@ -17,9 +19,6 @@ import {
   Fraunces_400Regular_Italic,
 } from '@expo-google-fonts/fraunces';
 import { DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold } from '@expo-google-fonts/dm-sans';
-
-
-
 
 SplashScreen.preventAutoHideAsync();
 
@@ -30,25 +29,28 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({ Fraunces_400Regular,
-  Fraunces_500Medium,
-  Fraunces_600SemiBold,
-  Fraunces_700Bold,
-  Fraunces_400Regular_Italic,
-  DMSans_400Regular,
-  DMSans_500Medium,
-  DMSans_600SemiBold, PlayfairDisplay_700Bold });
+  const [fontsLoaded] = useFonts({
+    Fraunces_400Regular,
+    Fraunces_500Medium,
+    Fraunces_600SemiBold,
+    Fraunces_700Bold,
+    Fraunces_400Regular_Italic,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    PlayfairDisplay_700Bold,
+  });
 
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
 
   useEffect(() => {
-  if (Platform.OS === 'android') {
-    NavigationBar.setButtonStyleAsync('light');                 // light icons
-    NavigationBar.setBackgroundColorAsync('#0f172a').catch(() => {}); // dark strip
-  }
-}, []);
+    if (Platform.OS === 'android') {
+      NavigationBar.setButtonStyleAsync('light');
+      NavigationBar.setBackgroundColorAsync('#0f172a').catch(() => {});
+    }
+  }, []);
 
   if (!fontsLoaded) return null;
 
@@ -57,7 +59,9 @@ export default function RootLayout() {
       <AuthProvider>
         <CartProvider>
           <WishlistProvider>
-            <Stack screenOptions={{ headerShown: false }} />
+            <ErrorBoundary>
+              <Stack screenOptions={{ headerShown: false }} />
+            </ErrorBoundary>
             <Toast />
           </WishlistProvider>
         </CartProvider>
