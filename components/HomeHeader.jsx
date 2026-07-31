@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { View, Text, Pressable, TextInput } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Search, X } from 'lucide-react-native';
 import HeaderActions from '@/components/HeaderActions';
+
+const LOGO = require('@/assets/images/exploreaba-cart-logo.png');
 
 const HomeHeader = () => {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -17,9 +20,9 @@ const HomeHeader = () => {
   return (
     <View className="bg-white border-b border-gray-100">
       <View className="flex-row items-center justify-between px-4 h-14">
-        <Pressable onPress={() => router.push('/')} className="flex-row items-center gap-2">
-          <View className="w-9 h-9 rounded-xl bg-green-600 items-center justify-center">
-            <Text className="text-white font-black text-base">E</Text>
+        <Pressable onPress={() => router.push('/')} className="flex-row items-center gap-1.5">
+          <View className="h-10 w-10">
+            <Image source={LOGO} style={{ width: '100%', height: '100%' }} contentFit="contain" />
           </View>
           <Text className="text-xl font-black tracking-tight">
             <Text className="text-green-700">Explore</Text>
