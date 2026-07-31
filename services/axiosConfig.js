@@ -36,6 +36,7 @@ const isTokenExpired = (token) => {
 
 const api = axios.create({
   baseURL: BASE_URL,
+  timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -64,7 +65,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ─── Response Interceptor: silent refresh on 401 ─────────────────────────────
+// ─── Response Interceptor: silent refresh on 401 (and 403-on-expiry) ────────
 let sessionExpiredToastShown = false;
 let isRefreshing = false;
 let refreshQueue = [];
@@ -102,8 +103,16 @@ api.interceptors.response.use(
     const token = await SecureStore.getItemAsync(TOKEN_KEY);
     const isAuthFlow = url.includes('/v1/auth/');
 
-    // ── 401 → one silent refresh, then replay the original request ──
-    if (status === 401 && token && !isAuthFlow && !originalRequest._retry) {
+    // Spring returns 403 (not 401) on a role-gated or authenticated() route once
+    // the JWT filter clears an expired token's context — no custom entry point
+    // is configured, so it falls back to Http403ForbiddenEntryPoint. A 403 on a
+    // token that's actually expired is an auth problem in disguise — treat it
+    // exactly like a 401.
+    const isAuthFailure =
+      status === 401 || (status === 403 && token && isTokenExpired(token));
+
+    // ── Looks like an expired/invalid token → one silent refresh, then replay ──
+    if (isAuthFailure && token && !isAuthFlow && !originalRequest._retry) {
       originalRequest._retry = true;
 
       if (isRefreshing) {
@@ -123,7 +132,6 @@ api.interceptors.response.use(
       }
 
       try {
-        // Bare axios (NOT `api`) so a failing refresh can't re-enter this interceptor.
         const { data } = await axios.post(`${BASE_URL}/v1/auth/refresh`, { refreshToken });
         await setAuthTokens(data.accessToken, data.refreshToken);
         isRefreshing = false;
@@ -138,21 +146,17 @@ api.interceptors.response.use(
       }
     }
 
-    // ── 401 a refresh couldn't fix (already retried) → sign out ──
-    if (status === 401 && token && !isAuthFlow) {
+    // ── Already retried and still failing → refresh couldn't fix it, sign out ──
+    if (isAuthFailure && token && !isAuthFlow) {
       await handleSessionExpired();
       return Promise.reject(error);
     }
 
-    // ── 403 handling ──
-    if (status === 403) {
-      if (token && isTokenExpired(token)) {
-        await handleSessionExpired();
-      } else if (!isAuthFlow) {
-        toast("You don't have access to do that. If you think this is a mistake, please contact support.", {
-          icon: '🚫', duration: 5000,
-        });
-      }
+    // ── Genuine access-denied: valid token, just lacking the required role ──
+    if (status === 403 && !isAuthFlow && !(token && isTokenExpired(token))) {
+      toast("You don't have access to do that. If you think this is a mistake, please contact support.", {
+        icon: '🚫', duration: 5000,
+      });
     }
 
     return Promise.reject(error);
