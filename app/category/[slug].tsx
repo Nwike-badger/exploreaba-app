@@ -1,16 +1,14 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, Pressable, FlatList, ActivityIndicator, RefreshControl,
-  ScrollView, Modal, TextInput,
+  View, Text, Pressable, FlatList, ActivityIndicator, RefreshControl, Modal, TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
-  ChevronLeft, Layers, SlidersHorizontal, ArrowUpDown, X, Check, Package, AlertCircle, RefreshCw,
+  ChevronLeft, SlidersHorizontal, ArrowUpDown, X, Check, Package, AlertCircle, RefreshCw,
 } from 'lucide-react-native';
 import api from '@/services/axiosConfig';
-import { useCategories } from '@/hooks/useCategories';
 import ProductCard from '@/components/product/ProductCard';
 
 const PAGE_SIZE = 20;
@@ -29,23 +27,10 @@ const SORT_MAP = {
   popular: 'soldCount,desc',
 };
 
-// Walk the category tree to find the node, its breadcrumbs, and children
-function findInTree(nodes, targetSlug, path = []) {
-  for (const node of nodes || []) {
-    const currentPath = [...path, node];
-    if (node.slug === targetSlug) return { node, path: currentPath };
-    if (node.children?.length) {
-      const found = findInTree(node.children, targetSlug, currentPath);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
-export default function CategoryScreen() {
+export default function BrandScreen() {
   const { slug } = useLocalSearchParams();
-  const { categories } = useCategories();
 
+  const [brand, setBrand] = useState(null);
   const [products, setProducts] = useState([]);
   const [page, setPage] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
@@ -62,16 +47,26 @@ export default function CategoryScreen() {
 
   const hasActiveFilters = !!(filters.minPrice || filters.maxPrice || filters.keyword);
 
-  const categoryInfo = useMemo(() => {
-    if (!categories?.length || !slug) return null;
-    return findInTree(categories, slug);
-  }, [categories, slug]);
+  // Brand metadata (name/logo/description) — fetched once on mount and on
+  // manual pull-to-refresh only. Deliberately NOT tied to sort/filter changes,
+  // since the brand itself doesn't change when the user re-sorts its products.
+  const fetchBrandMeta = useCallback(async () => {
+    if (!slug) return;
+    try {
+      const res = await api.get(`/brands/${slug}`);
+      setBrand(res.data);
+    } catch (e) {
+      console.error(e);
+      // Silent on purpose — a metadata hiccup shouldn't block the product grid,
+      // which is the actual content of this screen.
+    }
+  }, [slug]);
 
-  const category = categoryInfo?.node;
-  const subcategories = category?.children || [];
+  useEffect(() => { fetchBrandMeta(); }, [fetchBrandMeta]);
 
   const fetchPage = useCallback(
     async (pageNum, mode = 'initial') => {
+      if (!slug) return;
       if (mode === 'append') setLoadingMore(true);
       else if (mode === 'refresh') setRefreshing(true);
       else setLoading(true);
@@ -84,13 +79,13 @@ export default function CategoryScreen() {
         let res;
         if (hasActiveFilters) {
           res = await api.post(`/products/filter?${params.toString()}`, {
-            categorySlug: slug,
+            brandSlug: slug,
             keyword: filters.keyword || undefined,
             minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
             maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
           });
         } else {
-          res = await api.get(`/products/category/${slug}?${params.toString()}`);
+          res = await api.get(`/products/brand/${slug}?${params.toString()}`);
         }
 
         const d = res.data;
@@ -119,7 +114,10 @@ export default function CategoryScreen() {
   const onLoadMore = () => {
     if (!loadingMore && hasMore && !loading) fetchPage(page + 1, 'append');
   };
-  const onRefresh = () => fetchPage(0, 'refresh');
+  const onRefresh = () => {
+    fetchBrandMeta();
+    fetchPage(0, 'refresh');
+  };
   const clearFilters = () => setFilters({ minPrice: '', maxPrice: '', keyword: '' });
 
   return (
@@ -127,15 +125,12 @@ export default function CategoryScreen() {
       {/* Header */}
       <SafeAreaView edges={['top']} className="bg-white">
         <View className="flex-row items-center justify-between px-2 h-14 border-b border-gray-100">
-          <Pressable
-            onPress={() => router.back()}
-            className="w-10 h-10 items-center justify-center"
-          >
+          <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
             <ChevronLeft size={24} color="#374151" />
           </Pressable>
           <View className="items-center flex-1">
             <Text className="text-base font-black text-gray-900 tracking-tight" numberOfLines={1}>
-              {category?.name || slug}
+              {brand?.name || 'Brand'}
             </Text>
             {totalElements > 0 && (
               <Text className="text-[10px] text-gray-400 font-medium">
@@ -145,41 +140,30 @@ export default function CategoryScreen() {
           </View>
           <View className="w-10" />
         </View>
-      </SafeAreaView>
 
-      {/* Subcategories strip */}
-      {subcategories.length > 0 && (
-        <View className="bg-white border-b border-gray-100">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 10, gap: 8 }}
-          >
-            {subcategories.map((sub) => (
-              <Pressable
-                key={sub.slug}
-                onPress={() => router.push(`/category/${sub.slug}`)}
-                className="flex-row items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-2 rounded-2xl"
-              >
-                {sub.imageUrl ? (
-                  <View className="w-6 h-6 rounded-full overflow-hidden">
-                    <Image
-                      source={{ uri: sub.imageUrl }}
-                      style={{ width: '100%', height: '100%' }}
-                      contentFit="cover"
-                    />
-                  </View>
-                ) : (
-                  <Layers size={14} color="#16a34a" />
-                )}
-                <Text className="text-xs font-bold text-gray-700" numberOfLines={1}>
-                  {sub.name}
+        {/* Brand identity strip — logo + description, once metadata has loaded */}
+        {brand && (
+          <View className="flex-row items-center gap-3 px-4 py-3 border-b border-gray-100">
+            {brand.logoUrl ? (
+              <View className="w-12 h-12 rounded-xl overflow-hidden bg-gray-50">
+                <Image source={{ uri: brand.logoUrl }} style={{ width: '100%', height: '100%' }} contentFit="contain" />
+              </View>
+            ) : (
+              <View className="w-12 h-12 rounded-xl bg-green-600 items-center justify-center">
+                <Text className="text-white font-black text-lg">
+                  {brand.name?.charAt(0).toUpperCase() || '?'}
                 </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      )}
+              </View>
+            )}
+            <View className="flex-1">
+              <Text className="text-base font-black text-gray-900" numberOfLines={1}>{brand.name}</Text>
+              {brand.description ? (
+                <Text className="text-xs text-gray-500" numberOfLines={2}>{brand.description}</Text>
+              ) : null}
+            </View>
+          </View>
+        )}
+      </SafeAreaView>
 
       {/* Toolbar */}
       <View className="bg-white border-b border-gray-100 flex-row items-center justify-between px-3 py-2.5">
@@ -289,7 +273,7 @@ export default function CategoryScreen() {
               <Text className="text-sm text-gray-500 text-center mb-6">
                 {hasActiveFilters
                   ? 'Try adjusting your filters or search term.'
-                  : 'No products have been added to this category yet.'}
+                  : 'No products have been added to this brand yet.'}
               </Text>
               {hasActiveFilters && (
                 <Pressable onPress={clearFilters} className="bg-green-600 px-6 py-2.5 rounded-xl">
@@ -308,14 +292,8 @@ export default function CategoryScreen() {
         animationType="slide"
         onRequestClose={() => setSortModalOpen(false)}
       >
-        <Pressable
-          className="flex-1 bg-black/55 justify-end"
-          onPress={() => setSortModalOpen(false)}
-        >
-          <Pressable
-            className="bg-white rounded-t-3xl"
-            onPress={(e) => e.stopPropagation()}
-          >
+        <Pressable className="flex-1 bg-black/55 justify-end" onPress={() => setSortModalOpen(false)}>
+          <Pressable className="bg-white rounded-t-3xl" onPress={(e) => e.stopPropagation()}>
             <SafeAreaView edges={['bottom']}>
               <View className="items-center pt-3 pb-1">
                 <View className="w-10 h-1 rounded-full bg-gray-200" />
@@ -327,10 +305,7 @@ export default function CategoryScreen() {
                 {SORT_OPTIONS.map((opt) => (
                   <Pressable
                     key={opt.value}
-                    onPress={() => {
-                      setSort(opt.value);
-                      setSortModalOpen(false);
-                    }}
+                    onPress={() => { setSort(opt.value); setSortModalOpen(false); }}
                     className="flex-row items-center justify-between px-5 py-3.5"
                   >
                     <Text
@@ -356,14 +331,8 @@ export default function CategoryScreen() {
         animationType="slide"
         onRequestClose={() => setFilterModalOpen(false)}
       >
-        <Pressable
-          className="flex-1 bg-black/55 justify-end"
-          onPress={() => setFilterModalOpen(false)}
-        >
-          <Pressable
-            className="bg-white rounded-t-3xl"
-            onPress={(e) => e.stopPropagation()}
-          >
+        <Pressable className="flex-1 bg-black/55 justify-end" onPress={() => setFilterModalOpen(false)}>
+          <Pressable className="bg-white rounded-t-3xl" onPress={(e) => e.stopPropagation()}>
             <SafeAreaView edges={['bottom']}>
               <View className="items-center pt-3 pb-1">
                 <View className="w-10 h-1 rounded-full bg-gray-200" />
@@ -379,7 +348,6 @@ export default function CategoryScreen() {
               </View>
 
               <View className="p-5 gap-5">
-                {/* Price Range */}
                 <View>
                   <Text className="text-xs font-black text-gray-900 uppercase tracking-widest mb-3">
                     Price Range
@@ -411,10 +379,9 @@ export default function CategoryScreen() {
                   </View>
                 </View>
 
-                {/* In-category search */}
                 <View>
                   <Text className="text-xs font-black text-gray-900 uppercase tracking-widest mb-3">
-                    Search in Category
+                    Search This Brand
                   </Text>
                   <TextInput
                     value={filters.keyword}
@@ -425,13 +392,9 @@ export default function CategoryScreen() {
                   />
                 </View>
 
-                {/* Actions */}
                 <View className="flex-row gap-2 mt-2">
                   <Pressable
-                    onPress={() => {
-                      clearFilters();
-                      setFilterModalOpen(false);
-                    }}
+                    onPress={() => { clearFilters(); setFilterModalOpen(false); }}
                     className="flex-1 border border-gray-200 rounded-xl py-3.5 items-center"
                   >
                     <Text className="text-sm font-bold text-gray-700">Reset</Text>

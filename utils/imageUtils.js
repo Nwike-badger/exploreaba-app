@@ -1,4 +1,3 @@
-
 const isUnsplash   = (url) => url.includes('unsplash.com');
 const isCloudinary = (url) => url.includes('res.cloudinary.com');
 const isImgix      = (url) => url.includes('.imgix.net');
@@ -19,12 +18,15 @@ const buildUnsplashUrl = (url, width, quality) => {
   return result;
 };
 
+// A transformation segment looks like "w_400,q_75/" or "t_thumb/":
+// 1-3 letters, an underscore, then params. The version ("v123") and folder
+// names ("exploreaba/products/...") have no such underscore, so they are kept.
+const TRANSFORM_SEGMENT = /\/upload\/(?:[a-z]{1,3}_[^/]*\/)+/;
+
 const buildCloudinaryUrl = (url, width, quality) => {
   const transform = `w_${width},q_${quality},f_auto,c_fill`;
-  return url.replace(
-    /\/upload\/((?:[a-z_,0-9]+\/)+)?/,
-    `/upload/${transform}/`
-  );
+  const base = url.replace(TRANSFORM_SEGMENT, '/upload/'); // drop old transforms only
+  return base.replace('/upload/', `/upload/${transform}/`); // insert ours
 };
 
 const buildImgixUrl = (url, width, quality) => {

@@ -7,6 +7,7 @@ import { router, useFocusEffect } from 'expo-router';
 import {
   User, MapPin, Package, Settings, AlertCircle, CheckCircle,
   LogOut, ShieldCheck, ChevronRight, LogIn,
+  Info, Phone, Ruler, FileText,
 } from 'lucide-react-native';
 import api from '@/services/axiosConfig';
 import { useAuth } from '@/context/AuthContext';
@@ -311,6 +312,33 @@ export default function AccountScreen() {
               />
             </>
           )}
+        </View>
+
+        {/* NEW INFORMATION CARD */}
+        <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <MenuRow
+            icon={<Info size={18} color="#374151" />}
+            label="About Us"
+            onPress={() => router.push('/about')}
+          />
+          <View className="h-px bg-gray-100 mx-5" />
+          <MenuRow
+            icon={<Phone size={18} color="#374151" />}
+            label="Contact Us"
+            onPress={() => router.push('/contact')}
+          />
+          <View className="h-px bg-gray-100 mx-5" />
+          <MenuRow
+            icon={<Ruler size={18} color="#374151" />}
+            label="Size Guide"
+            onPress={() => router.push('/size-guide')}
+          />
+          <View className="h-px bg-gray-100 mx-5" />
+          <MenuRow
+            icon={<FileText size={18} color="#374151" />}
+            label="Legal & Policies"
+            onPress={() => router.push('/legal')}
+          />
         </View>
 
         <Pressable

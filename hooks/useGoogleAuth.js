@@ -1,11 +1,5 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
-import {
-  GoogleSignin,
-  isSuccessResponse,
-  isErrorWithCode,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/axiosConfig';
 import { useAuth } from '@/context/AuthContext';
@@ -13,17 +7,36 @@ import { useCart } from '@/context/CartContext';
 import { toast } from '@/utils/toast';
 import { postLoginRoute } from '@/utils/adminUtils';
 
-// Configure ONCE at module load (mirrors the old maybeCompleteAuthSession call).
+// The native module isn't present in Expo Go (or any binary built before this
+// package was linked). Load it defensively so simply importing this hook
+// never crashes the whole app. In a real dev/production build this succeeds
+// exactly as the static import did — GoogleSignin is the same object, nothing
+// below this block changes behavior.
+let GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes;
+try {
+  ({
+    GoogleSignin,
+    isSuccessResponse,
+    isErrorWithCode,
+    statusCodes,
+  } = require('@react-native-google-signin/google-signin'));
+} catch {
+  GoogleSignin = null;
+}
+
+// Configure ONCE at module load — only when the native module actually loaded.
 //  - webClientId MUST be an OAuth client of type "Web". It is REQUIRED to get an
 //    idToken back, and it becomes the token's audience — so your backend must
 //    verify the idToken against THIS same web client ID.
 //  - The Android OAuth client is matched automatically by package name + SHA-1,
 //    so there is deliberately NO androidClientId here anymore.
-GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  offlineAccess: false,
-});
+if (GoogleSignin) {
+  GoogleSignin.configure({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    offlineAccess: false,
+  });
+}
 
 /**
  * Shared Google sign-in hook for login, signup, and checkout screens.
@@ -74,6 +87,10 @@ export const useGoogleAuth = ({ onSuccess, onError } = {}) => {
   };
 
   const signIn = async () => {
+    if (!GoogleSignin) {
+      toast.error("Google sign-in isn't available in this build.");
+      return;
+    }
     setLoading(true);
     try {
       // Android-only check; always resolves true on iOS.

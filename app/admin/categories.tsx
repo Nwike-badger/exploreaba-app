@@ -7,15 +7,14 @@ import { Image } from 'expo-image';
 import {
   FolderTree, Plus, Pencil, Trash2, ChevronRight, ChevronDown,
   X, Search, AlertTriangle, ShieldAlert, CheckCircle2, Layers,
-  Folder, FolderOpen, Hash, Image as ImageIcon, CornerDownRight,
+  Folder, FolderOpen, Hash, Lock, CornerDownRight,
 } from 'lucide-react-native';
 import api from '@/services/axiosConfig';
 import { getErr, slugify } from '@/utils/adminUtils';
 import { toast } from '@/utils/toast';
 import PickerField from '@/components/ui/PickerField';
 import { C } from '@/components/admin/editor/tokens';
- import CategoryBarSettings from '@/components/admin/editor/CategoryBarSettings'; // TODO: port next (parentSlug-only)
- 
+import CategoryBarSettings from '@/components/admin/editor/CategoryBarSettings';
 
 const fieldInput = { backgroundColor: C.slate50, borderWidth: 1, borderColor: C.slate200, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.slate800 };
 const fieldLabel = { fontSize: 11, fontWeight: '700', color: C.slate500, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 };
@@ -114,7 +113,8 @@ export default function CategoryManagerScreen() {
         await api.post('/categories', payload);
         toast.success(`"${form.name}" created!`);
       } else {
-        await api.put(`/categories/${modal.initialData.slug}`, { ...payload, parentSlug: form.parentSlug === '' ? null : form.parentSlug });
+        // Backend rule: '' = make top-level, a slug = move under it, null = leave alone.
+        await api.put(`/categories/${modal.initialData.slug}`, { ...payload, parentSlug: form.parentSlug || '' });
         toast.success(`"${form.name}" updated!`);
       }
       setModal(null);
@@ -200,7 +200,7 @@ export default function CategoryManagerScreen() {
           )}
         </View>
 
-       <View style={{ marginTop: 16 }}>
+        <View style={{ marginTop: 16 }}>
           <CategoryBarSettings allCategories={categories} />
         </View>
       </ScrollView>
@@ -274,7 +274,7 @@ function CategoryFormModal({ mode, initialData, allCategories, saving, onSave, o
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }} keyboardShouldPersistTaps="handled">
-            {(form.parentSlug || initialData?.parentName) ? (
+            {form.parentSlug ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.slate50, borderWidth: 1, borderColor: C.slate200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 }}>
                 <CornerDownRight size={11} color={C.slate400} />
                 <Text style={{ fontSize: 11, color: C.slate500 }}>Nested under </Text>
@@ -288,14 +288,25 @@ function CategoryFormModal({ mode, initialData, allCategories, saving, onSave, o
             <View>
               <Text style={fieldLabel}>URL slug *</Text>
               <View style={{ position: 'relative' }}>
-                <Hash size={13} color={C.slate400} style={{ position: 'absolute', left: 12, top: 13, zIndex: 1 }} />
-                <TextInput value={form.slug} onChangeText={(t) => { setSlugManual(true); setF({ slug: slugify(t) }); }} style={[fieldInput, { paddingLeft: 32, fontFamily: 'monospace' }]} placeholder="mens-outerwear" placeholderTextColor={C.slate300} autoCapitalize="none" />
+                {isEdit
+                  ? <Lock size={13} color={C.slate400} style={{ position: 'absolute', left: 12, top: 13, zIndex: 1 }} />
+                  : <Hash size={13} color={C.slate400} style={{ position: 'absolute', left: 12, top: 13, zIndex: 1 }} />}
+                <TextInput
+                  value={form.slug}
+                  editable={!isEdit}
+                  onChangeText={(t) => { setSlugManual(true); setF({ slug: slugify(t) }); }}
+                  style={[fieldInput, { paddingLeft: 32, fontFamily: 'monospace', color: isEdit ? C.slate400 : C.slate800 }]}
+                  placeholder="mens-outerwear"
+                  placeholderTextColor={C.slate300}
+                  autoCapitalize="none"
+                />
               </View>
-              {isEdit ? <Text style={{ fontSize: 10, color: C.amber700, marginTop: 4 }}>⚠ Changing the slug may break existing links.</Text> : null}
+              {isEdit ? <Text style={{ fontSize: 10, color: C.slate400, marginTop: 4 }}>The slug can't be changed after creation — products and links depend on it.</Text> : null}
             </View>
             <View>
               <Text style={fieldLabel}>Parent category</Text>
               <PickerField value={form.parentSlug} onChange={(v) => setF({ parentSlug: v })} options={parentOptions} placeholder="— None (Root)" />
+              <Text style={{ fontSize: 10, color: C.slate400, marginTop: 4 }}>Its products and sub-categories move with it.</Text>
             </View>
             <View>
               <Text style={fieldLabel}>Image URL</Text>
@@ -338,7 +349,7 @@ function DeleteDialog({ category, deleting, onConfirm, onClose }) {
               <Text style={{ fontSize: 13, color: C.slate600, marginTop: 4, lineHeight: 18 }}>
                 {hasChildren
                   ? `"${category.name}" has ${childCount} direct child${childCount > 1 ? 'ren' : ''}${descendants > childCount ? ` (${descendants} total sub-categories)` : ''}. Delete or reassign those first.`
-                  : `"${category.name}" will be permanently removed. This cannot be undone.`}
+                  : `"${category.name}" will be permanently removed. This cannot be undone. If it still has products, the server will refuse — move them first.`}
               </Text>
             </View>
           </View>

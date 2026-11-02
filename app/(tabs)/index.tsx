@@ -14,12 +14,12 @@ import { heroUrl, mediumUrl } from '@/utils/imageUtils';
 // Hero image URLs
 const BESPOKE_HERO_IMG =
   'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=1400&q=85&auto=format&fit=crop';
-const CLOTHES_IMG =
-  'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&q=85&auto=format&fit=crop';
+const BRANDS_IMG =
+  'https://images.unsplash.com/photo-1761090617068-f1b3257d27ad?w=800&q=85&auto=format&fit=crop';
 const SHOES_IMG =
   'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&q=85&auto=format&fit=crop';
 
-const HeroCard = ({ uri, title, badge, ctaText, onPress, large }) => (
+const HeroCard = ({ uri, title, badge, onPress, large }) => (
   <Pressable
     onPress={onPress}
     className={`relative overflow-hidden rounded-2xl bg-gray-900 ${
@@ -48,17 +48,11 @@ const HeroCard = ({ uri, title, badge, ctaText, onPress, large }) => (
       )}
       <Text
         className={`font-black text-white tracking-tight leading-tight ${
-          large ? 'text-3xl mb-3' : 'text-base mb-1'
+          large ? 'text-3xl' : 'text-base'
         }`}
       >
         {title}
       </Text>
-      <View className="flex-row items-center gap-1.5">
-        <Text className="text-[10px] font-bold text-white uppercase tracking-widest">
-          {ctaText}
-        </Text>
-        <ArrowRight size={12} color="#fff" />
-      </View>
     </View>
   </Pressable>
 );
@@ -68,7 +62,7 @@ export default function HomeScreen() {
     products, loading, error, refetch,
     isOffline, isStale, refreshing, onPullToRefresh,
   } = useProducts(0, 10);
-  
+
   const safeProducts = Array.isArray(products) ? products : products?.content ?? [];
 
   return (
@@ -102,21 +96,18 @@ export default function HomeScreen() {
             uri={heroUrl(BESPOKE_HERO_IMG)}
             badge="Custom Made"
             title={'Crafted in Aba,\nWorn Globally.'}
-            ctaText="Custom"
             onPress={() => router.push('/custom')}
             large
           />
           <View className="flex-row gap-3">
             <HeroCard
-              uri={mediumUrl(CLOTHES_IMG)}
-              title="Clothes"
-              ctaText="Explore"
-              onPress={() => router.push('/category/clothes')}
+              uri={mediumUrl(BRANDS_IMG)}
+              title="Brands"
+              onPress={() => router.push('/brands')}
             />
             <HeroCard
               uri={mediumUrl(SHOES_IMG)}
               title="Shoes"
-              ctaText="Explore"
               onPress={() => router.push('/category/shoes')}
             />
           </View>

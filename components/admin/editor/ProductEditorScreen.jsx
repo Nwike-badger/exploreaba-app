@@ -83,19 +83,25 @@ export default function ProductEditorScreen({ productId }) {
     return () => { active = false; };
   }, [productId]);
 
-  // ── Map GET /products/{id} → editor state (mirrors your web load) ──
+  // ── Map GET /products/{id} → editor state (mirrors the web load) ──
   const hydrateForm = (data, brandData) => {
     const p = data.product ?? data;
     const v = data.variants ?? [];
     slugEdited.current = true;
 
+    // When a discount is active, the backend stores the DISCOUNTED price in
+    // basePrice and the ORIGINAL price in compareAtPrice. Load the original
+    // so saving doesn't apply the discount a second time.
+    const hasDiscount   = (p.discount ?? 0) > 0;
+    const originalPrice = hasDiscount && p.compareAtPrice ? p.compareAtPrice : p.basePrice;
+
     setForm({
       name: p.name || '',
       slug: p.slug || '',
       description: p.description || '',
-      basePrice: p.basePrice ?? '',
-      compareAtPrice: p.compareAtPrice ?? '',
-      discount: p.discount > 0 ? String(p.discount) : '',
+      basePrice: originalPrice ?? '',
+      compareAtPrice: hasDiscount ? '' : (p.compareAtPrice ?? ''),
+      discount: hasDiscount ? String(p.discount) : '',
       categorySlug: p.categorySlug || '',
       brandSlug: p.brand?.slug || brandData.find((b) => b.name === p.brandName)?.slug || '',
       tags: Array.isArray(p.tags) ? p.tags.join(', ') : '',
