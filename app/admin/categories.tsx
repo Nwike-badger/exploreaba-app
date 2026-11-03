@@ -21,6 +21,9 @@ const fieldLabel = { fontSize: 11, fontWeight: '700', color: C.slate500, textTra
 const DEPTH_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e'];
 const dColor = (d) => DEPTH_COLORS[d % DEPTH_COLORS.length];
 
+/** Suggested slug: parent slug + name, so "Shirts" under Men → "men-shirts" */
+const autoSlug = (name, parentSlug) => slugify(parentSlug ? `${parentSlug}-${name}` : name);
+
 const flattenForSelect = (nodes, depth = 0, excludeSlug = null) => {
   const out = [];
   for (const n of nodes) {
@@ -254,6 +257,13 @@ function CategoryFormModal({ mode, initialData, allCategories, saving, onSave, o
   const setF = (patch) => setForm((f) => ({ ...f, ...patch }));
   const canSubmit = form.name.trim() && form.slug.trim();
 
+  // When creating, picking a different parent refreshes the suggested slug
+  useEffect(() => {
+    if (!isEdit && !slugManual && form.name) {
+      setF({ slug: autoSlug(form.name, form.parentSlug) });
+    }
+  }, [form.parentSlug]); // eslint-disable-line
+
   const parentOptions = useMemo(() => {
     const flat = flattenForSelect(allCategories, 0, isEdit ? initialData?.slug : null);
     return [{ label: '— None (Root / Top-level)', value: '' }, ...flat.map((c) => ({ label: `${'   '.repeat(c.depth)}${c.depth > 0 ? '↳ ' : ''}${c.name}`, value: c.slug }))];
@@ -283,7 +293,14 @@ function CategoryFormModal({ mode, initialData, allCategories, saving, onSave, o
             ) : null}
             <View>
               <Text style={fieldLabel}>Category name *</Text>
-              <TextInput value={form.name} onChangeText={(t) => setF({ name: t, ...(slugManual ? {} : { slug: slugify(t) }) })} style={fieldInput} placeholder="e.g. Men's Outerwear" placeholderTextColor={C.slate300} />
+              <TextInput
+                value={form.name}
+                onChangeText={(t) => setF({ name: t, ...(slugManual ? {} : { slug: autoSlug(t, form.parentSlug) }) })}
+                style={fieldInput}
+                placeholder="e.g. Shirts"
+                placeholderTextColor={C.slate300}
+              />
+              <Text style={{ fontSize: 10, color: C.slate400, marginTop: 4 }}>The same name can be used under different parents.</Text>
             </View>
             <View>
               <Text style={fieldLabel}>URL slug *</Text>
@@ -296,12 +313,14 @@ function CategoryFormModal({ mode, initialData, allCategories, saving, onSave, o
                   editable={!isEdit}
                   onChangeText={(t) => { setSlugManual(true); setF({ slug: slugify(t) }); }}
                   style={[fieldInput, { paddingLeft: 32, fontFamily: 'monospace', color: isEdit ? C.slate400 : C.slate800 }]}
-                  placeholder="mens-outerwear"
+                  placeholder="men-shirts"
                   placeholderTextColor={C.slate300}
                   autoCapitalize="none"
                 />
               </View>
-              {isEdit ? <Text style={{ fontSize: 10, color: C.slate400, marginTop: 4 }}>The slug can't be changed after creation — products and links depend on it.</Text> : null}
+              {isEdit
+                ? <Text style={{ fontSize: 10, color: C.slate400, marginTop: 4 }}>The slug can't be changed after creation — products and links depend on it.</Text>
+                : <Text style={{ fontSize: 10, color: C.slate400, marginTop: 4 }}>Built from the parent and name. Must be unique.</Text>}
             </View>
             <View>
               <Text style={fieldLabel}>Parent category</Text>
